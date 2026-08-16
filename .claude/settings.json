@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./.venv/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000)",
+      "Bash(curl -s http://127.0.0.1:8000/api/ai/health)",
+      "Bash(curl -s http://127.0.0.1:8000/api/ai/nope)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:8000/docs)",
+      "Bash(./.venv/python.exe -m pip show fastapi starlette uvicorn openai langgraph langchain-text-splitters chromadb httpx pydantic-settings python-dotenv jieba pytest pytest-asyncio respx)",
+      "Bash(./.venv/python.exe -m pip install --dry-run \"langgraph==1.2.11\" \"langchain-text-splitters==1.1.2\")",
+      "Bash(./.venv/python.exe -m pip install \"langgraph==1.2.11\" \"langchain-text-splitters==1.1.2\")",
+      "Bash(./.venv/python.exe -c \"import app.main; import app.routers.admin; import app.routers.health; import app.services.ingest_service; import app.repositories.vector_store; print\\('app imports OK'\\)\")"
+    ]
+  }
+}

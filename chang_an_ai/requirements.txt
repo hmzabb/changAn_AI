@@ -1,0 +1,23 @@
+# 长安文旅探店助手 - Python AI 服务依赖
+# 环境要求：Python 3.11（3.14 下 chromadb/onnxruntime 等二进制轮子可能缺失）
+# 版本锁定说明：2026-08 实测可用组合。fastapi 0.141 的 HTTPException 拆分为
+# fastapi/starlette 两个类（影响全局异常 handler 写法），勿随意升级。
+# langgraph/langchain-text-splitters 已升级到 1.x（阶段 5 Agent 用），
+# 其配套组件（checkpoint/prebuilt/sdk）由 pip 按依赖关系自动解析，勿手动锁旧版本。
+
+fastapi==0.141.1
+starlette==1.6.0
+uvicorn[standard]==0.52.3
+openai==1.109.1
+langgraph==1.2.11
+langchain-text-splitters==1.1.2
+chromadb==0.5.23
+# chroma 0.5.x 的 telemetry 代码按 posthog 2.x 的 capture 签名调用，7.x 不兼容会刷屏报错，锁 2.4.2
+posthog==2.4.2
+httpx==0.28.1
+pydantic-settings==2.15.0
+python-dotenv==1.2.2
+jieba==0.42.1
+pytest==8.4.2
+pytest-asyncio==0.26.0
+respx==0.23.1
