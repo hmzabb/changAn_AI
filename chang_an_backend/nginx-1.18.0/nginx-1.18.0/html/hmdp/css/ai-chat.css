@@ -1,0 +1,137 @@
+/* AI 聊天页样式：全屏纵向布局（头部 + 滚动消息区 + 输入栏 + 底部导航） */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.chat-header {
+  padding: 10px 16px;
+  background: #ff6633;
+  color: #fff;
+}
+.chat-title {
+  font-size: 17px;
+  font-weight: 600;
+}
+.chat-sub {
+  font-size: 12px;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+.chat-body {
+  flex: 1;
+  overflow-y: auto;
+  background: #f5f5f5;
+  padding: 12px;
+}
+.chat-welcome {
+  text-align: center;
+  color: #999;
+  font-size: 13px;
+  margin-top: 40px;
+}
+
+.msg-row {
+  display: flex;
+  margin-bottom: 12px;
+}
+.msg-row.user {
+  justify-content: flex-end;
+}
+.bubble {
+  max-width: 78%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+.msg-row.user .bubble {
+  background: #ff6633;
+  color: #fff;
+}
+.msg-row.assistant .bubble {
+  background: #fff;
+  color: #333;
+  white-space: pre-wrap;
+}
+
+.bubble-error {
+  margin-top: 6px;
+  color: #e6a23c;
+  font-size: 12px;
+}
+.typing {
+  color: #999;
+  font-size: 12px;
+}
+
+/* Agent 工具调用状态条 */
+.tool-chips {
+  margin-top: 6px;
+}
+.tool-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  margin: 0 6px 4px 0;
+  background: #fdf6ec;
+  color: #e6a23c;
+  border-radius: 10px;
+  font-size: 11px;
+}
+
+/* 参考来源卡片 */
+.source-cards {
+  margin-top: 8px;
+  border-top: 1px dashed #eee;
+  padding-top: 6px;
+}
+.source-card {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  margin-top: 4px;
+  background: #f0f9ff;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #409eff;
+  cursor: pointer;
+}
+.src-idx {
+  color: #ff6633;
+  font-weight: 600;
+}
+.src-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.src-sim {
+  color: #999;
+}
+
+.chat-input-bar {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #fff;
+  border-top: 1px solid #eee;
+  align-items: center;
+}
+.chat-input-bar .el-input {
+  flex: 1;
+}
+
+/* 底部导航在 main.css 里是 absolute 定位（脱离文档流，会压住上面的输入栏），
+   本页覆盖为静态定位：加入 flex 列自然排布（header → 消息区 → 输入栏 → 导航），
+   flex-shrink:0 防止消息区被压缩时导航变形 */
+#app .foot {
+  position: static;
+  height: 56px;
+  flex-shrink: 0;
+  background: #fff;
+}

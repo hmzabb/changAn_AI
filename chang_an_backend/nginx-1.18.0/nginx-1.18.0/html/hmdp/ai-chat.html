@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>长安文旅探店助手</title>
+  <!-- 引入样式 -->
+  <link rel="stylesheet" href="./css/element.css">
+  <link href="./css/main.css" rel="stylesheet">
+  <link href="./css/ai-chat.css" rel="stylesheet">
+</head>
+<body>
+<div id="app">
+  <div class="chat-header">
+    <div class="chat-title">长安文旅 AI 助手</div>
+    <div class="chat-sub">回答基于知识库生成，可溯源引用</div>
+  </div>
+  <div class="chat-body" id="chatBody">
+    <div class="chat-welcome" v-if="messages.length === 0">
+      问我点什么吧～ 比如「西安三日游怎么安排？」「回民街有什么好吃的？」
+    </div>
+    <div v-for="(m, i) in messages" :key="i" class="msg-row" :class="m.role">
+      <div class="bubble">
+        <div class="bubble-text">{{m.text}}</div>
+        <div v-if="m.error" class="bubble-error">⚠ {{m.error}}</div>
+        <!-- 参考来源卡片：sources 事件渲染，点击跳店铺/笔记详情 -->
+        <div v-if="m.sources && m.sources.length" class="source-cards">
+          <div class="source-card" v-for="s in m.sources" :key="s.index" @click="toSource(s)">
+            <span class="src-idx">[{{s.index}}]</span>
+            <span class="src-title">{{s.title}}</span>
+            <span class="src-sim">{{(s.similarity * 100).toFixed(0)}}%</span>
+          </div>
+        </div>
+        <div v-if="m.streaming && !m.text" class="typing">正在思考…</div>
+        <div v-if="m.tools && m.tools.length" class="tool-chips">
+          <div class="tool-chip" v-for="(t, j) in m.tools" :key="j">⚙ {{toolLabel(t.name)}}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="chat-input-bar">
+    <el-input v-model="input" size="medium" placeholder="问问西安怎么玩…"
+              @keyup.enter.native="send"></el-input>
+    <el-button type="primary" size="medium" @click="send" :disabled="sending" round>发送</el-button>
+  </div>
+  <foot-bar :active-btn="3"></foot-bar>
+</div>
+<script src="./js/vue.js"></script>
+<script src="./js/axios.min.js"></script>
+<!-- 引入组件库 -->
+<script src="./js/element.js"></script>
+<script src="./js/common.js"></script>
+<script src="./js/footer.js"></script>
+<script src="./js/ai-chat.js"></script>
+</body>
+</html>

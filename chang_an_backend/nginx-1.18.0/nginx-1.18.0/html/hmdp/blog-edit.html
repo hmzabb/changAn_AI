@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>长安文旅探店助手</title>
+  <!-- 引入样式 -->
+  <link rel="stylesheet" href="./css/element.css">
+  <link href="./css/main.css" rel="stylesheet">
+  <link href="./css/blog-edit.css" rel="stylesheet">
+
+  <style type="text/css">
+    .ai-assist {
+      padding: 10px 14px;
+      background: #fff;
+    }
+    .ai-assist-label {
+      font-size: 12px;
+      color: #999;
+      margin-bottom: 6px;
+    }
+    .ai-assist-btns .el-button {
+      margin: 0 6px 6px 0;
+    }
+    .ai-title-item {
+      padding: 10px 8px;
+      border-bottom: 1px solid #f0f0f0;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .ai-title-item:hover {
+      background: #f0f9ff;
+      color: #ff6633;
+    }
+    .sentiment-line {
+      font-size: 14px;
+      line-height: 1.8;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="header-cancel-btn" @click="goBack">取消</div>
+    <div class="header-title">&nbsp;&nbsp;发笔记<i class="el-icon-info"></i></div>
+    <div class="header-commit">
+      <div class="header-commit-btn" @click="submitBlog">发布</div>
+    </div>
+  </div>
+  <div class="upload-box">
+    <input type="file" @change="fileSelected" name="file" ref="fileInput" style="display: none">
+    <div class="upload-btn" @click="openFileDialog">
+      <i class="el-icon-camera"></i>
+      <div style="font-size: 12px;line-height: 12px">上传照片</div>
+    </div>
+    <div class="pic-list">
+      <div class="pic-box" v-for="(f,i) in fileList" :key="i">
+        <img :src="f" alt="">
+        <i class="el-icon-close" @click="deletePic(i)"></i>
+      </div>
+    </div>
+  </div>
+  <div class="blog-title">
+    <input v-model="params.title" type="text" placeholder="填写标题更容易上首页哦~">
+  </div>
+  <div class="blog-content">
+    <textarea v-model="params.content" placeholder="最近打卡了什么地方，有什么新奇体验呢？"></textarea>
+  </div>
+  <!-- AI 辅助区（阶段 4）：标题/润色/情感自检，请求级 30s 超时覆盖全局 5s -->
+  <div class="ai-assist">
+    <div class="ai-assist-label">AI 辅助</div>
+    <div class="ai-assist-btns">
+      <el-button size="mini" @click="aiTitles" :disabled="!params.content || aiLoading">AI 标题</el-button>
+      <el-button size="mini" @click="aiPolish('文艺')" :disabled="!params.content || aiLoading">文艺润色</el-button>
+      <el-button size="mini" @click="aiPolish('幽默')" :disabled="!params.content || aiLoading">幽默润色</el-button>
+      <el-button size="mini" @click="aiPolish('朴实')" :disabled="!params.content || aiLoading">朴实润色</el-button>
+      <el-button size="mini" type="warning" @click="aiSentiment" :disabled="!params.content || aiLoading">情感自检</el-button>
+    </div>
+  </div>
+  <div class="divider"></div>
+  <div class="blog-shop" @click="showDialog=true">
+    <div class="shop-left">关联商户</div>
+    <div v-if="selectedShop.name">{{selectedShop.name}}</div>
+    <div v-else>去选择&nbsp;<i class="el-icon-arrow-right"></i></div>
+  </div>
+  <div class="mask" v-show="showDialog" @click="showDialog=false"></div>
+
+  <transition name="el-zoom-in-bottom">
+    <div class="shop-dialog" v-show="showDialog">
+      <div class="blog-shop">
+        <div class="shop-left">关联商户</div>
+      </div>
+      <div class="search-bar">
+        <div class="city-select">西安 <i class="el-icon-arrow-down"></i></div>
+        <div class="search-input">
+          <i class="el-icon-search" @click="queryShops"></i>
+          <input v-model="shopName" type="text" placeholder="搜索商户名称">
+        </div>
+      </div>
+      <div class="shop-list">
+        <div v-for="s in shops" class="shop-item" @click="selectShop(s)">
+          <div class="shop-name">{{s.name}}</div>
+          <div>{{s.area}}</div>
+        </div>
+      </div>
+    </div>
+  </transition>
+
+  <!-- AI 标题候选对话框 -->
+  <el-dialog title="AI 候选标题（点击选用）" :visible.sync="titleDialog" width="90%">
+    <div v-for="(t, i) in aiTitlesList" :key="i" class="ai-title-item" @click="useTitle(t)">
+      {{t}}
+    </div>
+  </el-dialog>
+  <!-- 情感自检结果对话框 -->
+  <el-dialog title="情感自检结果" :visible.sync="sentimentDialog" width="85%">
+    <div v-if="sentimentResult" class="sentiment-box">
+      <div class="sentiment-line">情感倾向：<b>{{sentimentResult.sentiment}}</b>（{{sentimentResult.score}} 分）</div>
+      <div class="sentiment-line" v-if="sentimentResult.keywords && sentimentResult.keywords.length">
+        关键词：{{sentimentResult.keywords.join('、')}}
+      </div>
+      <div class="sentiment-line">{{sentimentResult.summary}}</div>
+    </div>
+  </el-dialog>
+</div>
+<script src="./js/vue.js"></script>
+<script src="./js/axios.min.js"></script>
+<!-- 引入组件库 -->
+<script src="./js/element.js"></script>
+<script src="./js/common.js"></script>
+<script src="./js/footer.js"></script>
+<script>
+
+  const app = new Vue({
+    el: "#app",
+    data() {
+      return {
+        util,
+        fileList: [], // 文件列表
+        params: {},
+        showDialog: false, //
+        shops: [], // 商户信息
+        shopName: "", //商户名称
+        selectedShop: {}, // 选中的商户
+        // ---- AI 辅助状态 ----
+        aiLoading: false,
+        aiTitlesList: [],
+        titleDialog: false,
+        sentimentDialog: false,
+        sentimentResult: null,
+      }
+    },
+    created() {
+      this.checkLogin();
+      this.queryShops();
+    },
+    methods: {
+      queryShops() {
+        axios.get("/shop/of/name?name=" + this.shopName)
+          .then(({data}) => this.shops = data)
+          .catch(this.$message.error)
+      },
+      selectShop(s) {
+        this.selectedShop = s;
+        this.showDialog = false;
+      },
+      submitBlog() {
+        let {...data} = this.params;
+        data.images = this.fileList.join(",");
+        data.shopId = this.selectedShop.id;
+        axios.post("/blog", data)
+          .then(resp => location.href = "/info.html")
+          .catch(this.$message.error)
+      },
+      openFileDialog() {
+        this.$refs.fileInput.click();
+      },
+      fileSelected() {
+        let file = this.$refs.fileInput.files[0];
+        let formData = new FormData();
+        formData.append("file", file);
+        const config = {
+          headers: {"Content-Type": "multipart/form-data;boundary=" + new Date().getTime()}
+        };
+        axios
+          .post("/upload/blog", formData, config)
+          .then(({data}) => this.fileList.push('/imgs' + data))
+          .catch(this.$message.error);
+      },
+      deletePic(i) {
+        axios.get("/upload/blog/delete?name=" + this.fileList[i])
+          .then(() => this.fileList.splice(i, 1))
+          .catch(this.$message.error)
+      },
+      checkLogin() {
+        // 获取token
+        let token = sessionStorage.getItem("token");
+        if (!token) {
+          location.href = "login.html"
+        }
+        // 查询用户信息
+        axios.get("/user/me")
+          .then()
+          .catch(err => {
+            this.$message.error(err);
+            setTimeout(() => location.href = "login.html", 200)
+          })
+      },
+      goBack() {
+        history.back();
+      },
+      // ============ AI 辅助（阶段 4） ============
+      // 每个请求都带 {timeout: 30000}：common.js 全局 5s 会误杀 LLM 长请求（面试点）
+      aiTitles() {
+        this.aiLoading = true;
+        axios.post("/ai/assist/title", {
+          content: this.params.content,
+          shopName: this.selectedShop.name,
+        }, {timeout: 30000})
+          .then(({data}) => {
+            this.aiTitlesList = data.titles;
+            this.titleDialog = true;
+          })
+          .catch(this.$message.error)
+          .finally(() => this.aiLoading = false)
+      },
+      useTitle(t) {
+        this.params.title = t;
+        this.titleDialog = false;
+      },
+      aiPolish(style) {
+        this.aiLoading = true;
+        axios.post("/ai/assist/polish", {
+          content: this.params.content,
+          style: style,
+        }, {timeout: 30000})
+          .then(({data}) => {
+            this.params.content = data.polished;
+            this.$message.success("润色完成，可直接修改后发布");
+          })
+          .catch(this.$message.error)
+          .finally(() => this.aiLoading = false)
+      },
+      aiSentiment() {
+        this.aiLoading = true;
+        axios.post("/ai/assist/sentiment", {
+          content: this.params.content,
+        }, {timeout: 30000})
+          .then(({data}) => {
+            this.sentimentResult = data;
+            this.sentimentDialog = true;
+          })
+          .catch(this.$message.error)
+          .finally(() => this.aiLoading = false)
+      },
+      handleRemove(file) {
+        console.log(file);
+      }
+    },
+
+  })
+</script>
+</body>
+</html>
