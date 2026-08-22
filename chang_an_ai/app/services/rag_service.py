@@ -20,9 +20,15 @@ def retrieve(query: str) -> list[dict]:
 
     返回 [{text, metadata, distance, similarity}]，similarity = 1 - distance
     （Chroma cosine 空间的 distance 是 1-相似度，这里换算回直观的相似度）。
+
+    embedding 或 Milvus 异常时返回空列表，由上层 fallback 话术兜底——
+    检索失败不阻塞问答，用户至少能得到"暂无相关信息"的回复。
     """
-    qv = get_embedding_client().embed_texts([query])[0]
-    hits = get_store().query(qv, top_k=settings.rag_recall_top_k)
+    try:
+        qv = get_embedding_client().embed_texts([query])[0]
+        hits = get_store().query(qv, top_k=settings.rag_recall_top_k)
+    except Exception:
+        return []
     # Milvus 版 query 返回 score（COSINE 相似度，越大越相关），直接作为 similarity。
     # （注意与 Chroma 版的距离语义相反——这就是 repository 层收敛的好处：
     # 换向量库只影响本层，上层统一用 similarity 概念。）
@@ -37,23 +43,33 @@ def _build_context(hits: list[dict]) -> str:
 
 
 def _build_sources(hits: list[dict]) -> list[dict]:
-    """sources 事件数据：前端渲染"参考来源"卡片（shop_id 用于跳店铺详情页）。"""
-    return [
-        {
+    """sources 事件数据：前端渲染"参考来源"卡片（shop_id 用于跳店铺详情页）。
+
+    title 兜底：voucher 等元数据没有标题的片段，取正文首行做标题，
+    避免前端卡片出现空白标题。
+    """
+    out = []
+    for i, h in enumerate(hits):
+        title = h["metadata"].get("title") or h["metadata"].get("name") or h["metadata"].get("doc")
+        if not title:
+            title = h["text"].split("\n")[0][:30] or "未知来源"
+        out.append({
             "index": i + 1,
             "text": h["text"][:80],
             "source": h["metadata"].get("source"),
             "type": h["metadata"].get("type"),
             "shop_id": h["metadata"].get("shop_id") or h["metadata"].get("id"),
-            "title": h["metadata"].get("title") or h["metadata"].get("name") or h["metadata"].get("doc"),
+            "title": title,
             "similarity": round(h["similarity"], 3),
-        }
-        for i, h in enumerate(hits)
-    ]
+        })
+    return out
 
 
 def answer(query: str, history: list[dict]):
-    """流式回答：生成 (event, payload) 序列——("sources", list) → ("delta", str)* → ("done", None)。
+    """流式回答：生成 (event, payload) 序列。
+
+    事件序列：status("正在检索") → sources / status("生成中") → delta* → done。
+    比之前多一个 status 事件：前端收到后更新进度文案，用户不会觉得"卡死了"。
 
     防幻觉三板斧在此汇合：
     1. prompt 强制"没有就明说" + [n] 引用标注（RAG_SYSTEM）；
@@ -63,6 +79,7 @@ def answer(query: str, history: list[dict]):
 
     检索用改写后的 query（指代还原），生成用用户原话（保留语气和意图）。
     """
+    yield ("status", "正在检索知识库…")
     search_query = rewrite(query, history)
     hits = retrieve(search_query)
     valid_hits = [h for h in hits if h["similarity"] >= settings.rag_min_score]
@@ -74,6 +91,7 @@ def answer(query: str, history: list[dict]):
         return
 
     yield ("sources", _build_sources(valid_hits))
+    yield ("status", "正在生成回答…")
     messages = [
         {"role": "system", "content": RAG_SYSTEM},
         {"role": "user", "content": RAG_USER_TEMPLATE.format(

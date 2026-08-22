@@ -21,11 +21,10 @@ class SiliconflowEmbeddingClient(EmbeddingClient):
     def __init__(self, base_url: str, api_key: str, model: str):
         from openai import OpenAI
 
-        self._client = OpenAI(base_url=base_url, api_key=api_key)
+        self._client = OpenAI(base_url=base_url, api_key=api_key, timeout=10.0)
         self._model = model
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
-        # 消息发给大模型
         resp = self._client.embeddings.create(model=self._model, input=texts)
         return [item.embedding for item in resp.data]
 

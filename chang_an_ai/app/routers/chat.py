@@ -7,11 +7,12 @@ mode 三种取值：
   否则走 RAG。这是零成本基线；LLM 意图分类是可选升级（多一次调用换准确率）。
 
 SSE 事件协议：
-  event: sources    data: [...]          引用来源（RAG 模式先发）
-  event: tool_call  data: {name, input}  工具调用开始（Agent 模式，前端显示状态）
-  event: delta      data: "文本"         生成增量（打字机）
-  event: done       data: {}             结束
-  event: error      data: {message}      异常（也走 SSE，不裸断流）
+  event: status     data: "正在检索知识库…"  进度提示（新增，消除"卡死"感）
+  event: sources    data: [...]              引用来源（RAG 模式先发）
+  event: tool_call  data: {name, input}      工具调用开始（Agent 模式，前端显示状态）
+  event: delta      data: "文本"             生成增量（打字机）
+  event: done       data: {}                 结束
+  event: error      data: {message}          异常（也走 SSE，不裸断流）
 
 技术点：
 - RAG 路径是同步生成器（DeepSeek SDK 同步流），用 starlette 的
@@ -26,7 +27,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from starlette.concurrency import iterate_in_threadpool
 
-from app.agent.graph import agent
+from app.agent.graph import get_agent
 from app.services.rag_service import answer
 from app.services.session_store import append, get_history
 
@@ -60,7 +61,9 @@ def _rag_frames(req: ChatRequest, history: list[dict]):
     collected: list[str] = []
     try:
         for event, payload in answer(req.message, history):
-            if event == "sources":
+            if event == "status":
+                yield _sse("status", payload)
+            elif event == "sources":
                 yield _sse("sources", payload)
             elif event == "delta":
                 collected.append(payload)
@@ -81,7 +84,7 @@ async def _agent_frames(req: ChatRequest, history: list[dict]):
     messages = [(m["role"], m["content"]) for m in history]
     collected: list[str] = []
     try:
-        async for ev in agent.astream_events(
+        async for ev in get_agent().astream_events(
             {"messages": messages}, version="v2", config={"recursion_limit": 13}
         ):
             kind = ev["event"]

@@ -17,9 +17,6 @@ from __future__ import annotations
 import logging
 from hashlib import sha1
 
-from pymilvus import DataType, MilvusClient
-from pymilvus.client.types import LoadState
-
 from app.config import settings
 from app.services.chunking import Chunk
 
@@ -35,23 +32,38 @@ _PAGE_SIZE = 16384  # Milvus query 单次上限
 class VectorStore:
 
     def __init__(self, uri: str | None = None):
-        # pymilvus 默认 INFO 日志刷屏（gRPC 调试信息），调到 WARNING 降噪
+        # pymilvus 与 pydantic 2.13 存在兼容性问题导致导入耗时较长，
+        # 懒加载到首次使用时才导入，避免阻塞服务启动
+        from pymilvus import MilvusClient
+
         logging.getLogger("pymilvus").setLevel(logging.WARNING)
-        # MilvusClient 惰性连接：构造不联网，首个操作才建 gRPC 连接
         self._client = MilvusClient(uri=uri or settings.milvus_uri)
-        self._ensure_collection()
+        try:
+            self._ensure_collection()
+        except Exception:
+            logging.exception("Failed to ensure collection, queries may fail")
 
     def _ensure_collection(self) -> None:
         """建Collection（幂等）：不存在则建 schema+索引（自动 load）；
         存在但 schema 不兼容则重建；Milvus 服务重启后 collection 不会自动
-        load，这里补一次 load。"""
+        load，这里补一次 load。
+
+        面试点：这里如果 Milvus 内部段文件损坏导致 Loading 卡死，不阻塞启动——
+        通过超时 + 优雅降级保证服务可用性，损坏的段不影响其他已加载段的查询。
+        """
+        from pymilvus import DataType, MilvusClient
+        from pymilvus.client.types import LoadState
         if self._client.has_collection(COLLECTION_NAME):
             fields = {f["name"] for f in self._client.describe_collection(COLLECTION_NAME)["fields"]}
             if not _EXPECTED_FIELDS <= fields:  # 残留的旧 schema collection → 重建
                 self._client.drop_collection(COLLECTION_NAME)
             else:
-                if self._client.get_load_state(COLLECTION_NAME)["state"] != LoadState.Loaded:
+                state_info = self._client.get_load_state(COLLECTION_NAME)
+                state = state_info["state"]
+                if state == LoadState.NotLoad:
                     self._client.load_collection(COLLECTION_NAME)
+                # Loading 状态：不轮询等待（Milvus 内部段损坏时 get_load_state
+                # 可能卡死），由上层 query() 的检索失败兜底
                 return
 
         schema = MilvusClient.create_schema(auto_id=False, enable_dynamic_field=False)

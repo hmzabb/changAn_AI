@@ -16,21 +16,50 @@ const app = new Vue({
     messages: [],   // {role: "user"|"assistant", text, sources: [], error, streaming}
     input: "",
     sending: false,
-    // 会话 id：每次打开页面新建一个会话（阶段 2 的多轮改写靠它关联上下文）
-    sessionId: "s" + Date.now() + "-" + Math.floor(Math.random() * 10000),
+    sessionId: "",  // 从 sessionStorage 恢复，首次访问才新建
   },
   created() {
-    // 聊天接口 nginx 直连 Python 不校验登录，前端先自查 token（与"发笔记需登录"语义一致）
     if (!sessionStorage.getItem("token")) {
       location.href = "/login.html";
     }
+    // 恢复聊天记录：存在 sessionStorage 里，切换页面不丢，关闭标签页才清
+    const saved = sessionStorage.getItem("ai_chat");
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        this.messages = (data.messages || []).map(function (m) {
+          m.streaming = false;  // 切回来时流式已断，统一标为完成态
+          return m;
+        });
+        this.sessionId = data.sessionId || this._newSessionId();
+      } catch (e) {
+        this.sessionId = this._newSessionId();
+      }
+    } else {
+      this.sessionId = this._newSessionId();
+    }
+    // 页面关闭/跳转前强制保存：watch 是异步的，用户可能在 nextTick 前就切走了
+    window.addEventListener("beforeunload", this._saveChat);
+  },
+  beforeDestroy() {
+    window.removeEventListener("beforeunload", this._saveChat);
   },
   methods: {
+    _newSessionId() {
+      return "s" + Date.now() + "-" + Math.floor(Math.random() * 10000);
+    },
+    _saveChat() {
+      sessionStorage.setItem("ai_chat", JSON.stringify({
+        messages: this.messages,
+        sessionId: this.sessionId,
+      }));
+    },
     async send() {
       const text = this.input.trim();
       if (!text || this.sending) return;
       this.sending = true;
       this.messages.push({role: "user", text: text, sources: [], streaming: false});
+      this._saveChat();
       this.input = "";
       // 助手占位消息：流式增量往里填
       const reply = {role: "assistant", text: "", sources: [], tools: [], error: "", streaming: true};
@@ -53,6 +82,7 @@ const app = new Vue({
       } finally {
         reply.streaming = false;
         this.sending = false;
+        this._saveChat();
         this.scrollToBottom();
       }
     },
@@ -88,6 +118,8 @@ const app = new Vue({
       }
       if (event === "sources") {
         reply.sources = payload || [];
+      } else if (event === "status") {
+        reply.text = payload;  // 显示进度文案："正在检索知识库…" / "正在生成回答…"
       } else if (event === "tool_call") {
         // Agent 工具调用状态：显示"正在查店铺/查券…"
         reply.tools.push(payload);
@@ -124,5 +156,11 @@ const app = new Vue({
         if (el) el.scrollTop = el.scrollHeight;
       });
     },
-  }
+  },
+  watch: {
+    messages: {
+      deep: true,
+      handler: "_saveChat",
+    },
+  },
 })

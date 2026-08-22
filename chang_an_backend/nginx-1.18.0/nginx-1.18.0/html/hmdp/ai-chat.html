@@ -27,7 +27,7 @@
         <div v-if="m.sources && m.sources.length" class="source-cards">
           <div class="source-card" v-for="s in m.sources" :key="s.index" @click="toSource(s)">
             <span class="src-idx">[{{s.index}}]</span>
-            <span class="src-title">{{s.title}}</span>
+            <span class="src-title">{{s.title || s.text}}</span>
             <span class="src-sim">{{(s.similarity * 100).toFixed(0)}}%</span>
           </div>
         </div>
@@ -51,6 +51,6 @@
 <script src="./js/element.js"></script>
 <script src="./js/common.js"></script>
 <script src="./js/footer.js"></script>
-<script src="./js/ai-chat.js"></script>
+<script src="./js/ai-chat.js?v=2"></script>
 </body>
 </html>
