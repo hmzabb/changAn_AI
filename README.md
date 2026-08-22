@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="数据流图.png" alt="长安文旅探店助手 - 数据流图" width="100%"/>
+  <img src="photos/数据流图.png" alt="长安文旅探店助手 - 数据流图" width="100%"/>
 </p>
 
 <h1 align="center">🏮 长安文旅探店助手</h1>
 <p align="center">
   <strong>Java + Python 双栈 AI 探店平台</strong><br>
-  以 Spring Boot 点评平台为底座，叠加 DeepSeek 大模型 + LangGraph Agent + Milvus 向量检索<br>
+  以 Spring Boot 点评平台（这部分本文不做详细说明，详见黑马点评项目）为底座，叠加 DeepSeek 大模型 + LangGraph Agent + Milvus 向量检索<br>
   打造长安（西安）文旅场景下的智能问答、探店笔记 AI 辅助与智能推荐 Agent
 </p>
 
@@ -27,10 +27,10 @@
 
 - [💡 一句话介绍](#-一句话介绍)
 - [✨ 核心亮点](#-核心亮点)
+- [🎬 演示剧本与截图](#-演示剧本与截图)
 - [🏗 系统架构](#-系统架构)
 - [📂 项目结构](#-项目结构)
 - [🚀 快速开始](#-快速开始)
-- [🎬 演示剧本](#-演示剧本)
 - [📡 接口设计](#-接口设计)
 - [🧠 核心功能深度解析](#-核心功能深度解析)
 - [🗺 开发路线图](#-开发路线图)
@@ -86,6 +86,49 @@
 
 ---
 
+## 🎬 演示剧本与截图
+
+| 场景 | 对话示例 | 涉及技术 |
+|------|----------|----------|
+| 🗺 **RAG 知识问答** | 「西安三日游怎么安排？」 | 向量检索 → 重排 → 流式生成 → 引用来源 |
+| 🍜 **Agent 探店** | 「回民街有什么好吃的店？」 | 意图路由 → 查店名 → 查优惠券 |
+| 🧭 **多轮距离排序** | 「人均 50 以下再近一点」 | 多轮改写 → 查分类 + 坐标距离排序 |
+| ✍️ **AI 辅助发笔记** | 生成标题（5选1）→ 润色 → 情感自检 | 标题生成 / 风格润色 / 情感分析 |
+| 📊 **管理后台** | `GET /api/ai/admin/status` | 向量库规模与来源分布 |
+
+<table>
+<tr>
+<td width="33%" align="center">
+  <strong>🏠 应用首页</strong><br><br>
+  <img src="photos/Snipaste_2026-08-23_00-27-14.png" alt="应用首页" width="100%"/>
+</td>
+<td width="33%" align="center">
+  <strong>📝 AI 候选标题（5选1）</strong><br><br>
+  <img src="photos/Snipaste_2026-08-23_00-27-59.png" alt="AI 智能问答" width="100%"/>
+</td>
+<td width="33%" align="center">
+  <strong>🗺 AI 智能问答（RAG 流式回答带引用来源）</strong><br><br>
+  <img src="photos/Snipaste_2026-08-23_00-31-41.png" alt="Agent 多轮对话" width="100%"/>
+</td>
+</tr>
+<tr>
+<td width="33%" align="center">
+  <strong>✨️ AI 风格润色</strong><br><br>
+  <img src="photos/Snipaste_2026-08-23_00-28-25.png" alt="风格润色" width="100%"/>
+</td>
+<td width="33%" align="center">
+  <strong>🎭 情感自检</strong><br><br>
+  <img src="photos/Snipaste_2026-08-23_00-28-32.png" alt="情感自检" width="100%"/>
+</td>
+<td width="33%" align="center">
+  <strong>🤖 Agent 多轮对话（工具调用 + 距离排序）</strong><br><br>
+  <img src="photos/Snipaste_2026-08-23_00-31-56.png" alt="多轮对话" width="100%"/>
+</td>
+</tr>
+</table>
+
+---
+
 ## 🏗 系统架构
 
 ### 数据流全景图
@@ -119,7 +162,7 @@
 
 ```
 chang_an_travel/
-├── 📄 README.md
+├──  README.md
 ├── 🖼 数据流图.png
 │
 ├── 📁 chang_an_ai/                    # 🐍 Python AI 服务（FastAPI, port 8000）
@@ -240,18 +283,6 @@ start nginx.exe
 ```
 http://localhost:8080 → 点击底部「AI 助手」tab 开始体验 🎉
 ```
-
----
-
-## 🎬 演示剧本
-
-| 场景 | 对话示例 | 涉及技术 |
-|------|----------|----------|
-| 🗺 **RAG 知识问答** | 「西安三日游怎么安排？」 | 向量检索 → 重排 → 流式生成 → 引用来源 |
-| 🍜 **Agent 探店** | 「回民街有什么好吃的店？」 | 意图路由 → 查店名 → 查优惠券 |
-| 🧭 **多轮距离排序** | 「人均 50 以下再近一点」 | 多轮改写 → 查分类 + 坐标距离排序 |
-| ✍️ **AI 辅助发笔记** | 生成标题（5选1）→ 润色 → 情感自检 | 标题生成 / 风格润色 / 情感分析 |
-| 📊 **管理后台** | `GET /api/ai/admin/status` | 向量库规模与来源分布 |
 
 ---
 
