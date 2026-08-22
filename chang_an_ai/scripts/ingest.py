@@ -1,9 +1,9 @@
 """离线建库脚本：python scripts/ingest.py [--source corpus|java|all]
 
 为什么建库是离线脚本而不是服务启动时自动跑？
-1. Chroma 底层 SQLite 不允许两个进程同时写同一个库（Windows 上尤其严格），
-   所以约定：先跑本脚本，再启动 FastAPI（服务里只读）；
-2. 建库要全量拉数 + embedding，耗时几十秒到几分钟，放服务里会拖慢启动。
+1. 建库要全量拉数 + embedding，耗时几十秒到几分钟，放服务里会拖慢启动；
+2. 建库是低频运维动作，手动触发更可控。Milvus 是独立服务（不像 Chroma 的
+   SQLite 有单写者限制），脚本与 FastAPI 并行跑也不冲突。
 """
 import argparse
 import sys
@@ -17,7 +17,7 @@ from app.services.ingest_service import run_ingest  # noqa: E402
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="重建长安知识库（离线运行，先停 FastAPI）")
+    parser = argparse.ArgumentParser(description="重建长安知识库（离线运行，可与 FastAPI 并行）")
     parser.add_argument(
         "--source",
         action="append",
@@ -37,7 +37,7 @@ def main() -> None:
     if report["errors"]:
         print(f"失败：{report['errors']}")
         sys.exit(1)
-    print("建库完成 ✅ 可以启动服务了：python run.py")
+    print("建库完成 ✅")
 
 
 if __name__ == "__main__":

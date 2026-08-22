@@ -8,16 +8,16 @@
   语义单元（几百字以内），切碎了反而丢信息。用模板把字段拼成自然中文——向量模型
   在自然语言上效果最好，字段裸拼（"name=xxx avgPrice=50"）会稀释语义。
 """
-from __future__ import annotations
+from __future__ import annotations # 延迟类型注解求值，允许前向引用
 
-import re
+import re # 正则：HTML 标签清洗、句子边界切分
 from dataclasses import dataclass, field
 
 # ---- 分块参数 ----
 CHUNK_MAX = 600   # 超过此长度的小节续切
 OVERLAP = 80      # 续切时相邻块重叠字数，防止关键句被切断
 
-_HTML_TAG_RE = re.compile(r"<[^>]+>")  # 笔记 content 是富文本（含 <br/> 等标签）
+_HTML_TAG_RE = re.compile(r"<[^>]+>")  # 笔记 是markdown形式 是富文本（含 <br/> 等标签）
 
 
 @dataclass
@@ -55,7 +55,7 @@ def _split_long(text: str) -> list[str]:
     blocks: list[str] = []
     buf = ""
     for sent in sentences:
-        if len(buf) + len(sent) > CHUNK_MAX and buf:
+        if len(buf) + len(sent) > CHUNK_MAX and buf:#and buf防止第一轮就超限
             blocks.append(buf.strip())
             buf = buf[-OVERLAP:] + sent  # 重叠：上一块尾部 80 字带进下一块
         else:
@@ -118,19 +118,49 @@ def blog_to_text(blog: dict) -> str:
 def voucher_to_text(voucher: dict, shop_name: str = "") -> str:
     """优惠券 → 自然中文。
 
-    TODO(关键部分-你来完成)：下面是能跑的基础版，请补全：
-    1. 库存 stock（用户问"还有券吗"时最关键）；
-    2. 生效/失效时间 beginTime/endTime（"今天能用吗"）；
-    3. 使用规则 rules 完整展开（下面只引了个字段名，读起来不自然）；
-    4. payValue/actualValue 的表达优化——"89 元抵 100 元"比"89/100"更像人话，
-       注意值为 0 时的兜底措辞。
-    完成后思考：券库存实时变化，这里入库的是"快照"，时效性问题怎么分层解决？
-    （答案见 项目说明.md 6.2 的"时效性分层"，阶段 5 Agent 会用到。）
+    库存三态（None/0/>0）区分；payValue=0 时表达为"免费领取"；
+    rules 按 list 展开或按字符串原样输出；时间字段可选拼接。
     """
-    pay, actual = voucher.get("payValue"), voucher.get("actualValue")
-    deal = f"{pay}元抵{actual}元" if pay and actual else voucher.get("title", "")
+
+    pay, actual, stock = voucher.get("payValue"), voucher.get("actualValue"), voucher.get("stock")
+
+    if stock is None:
+        stock_text = "库存未知"
+    elif stock == 0:
+        stock_text = "已售罄"
+    else:
+        stock_text = f"库存{stock}张"
+
+    begin_time = voucher.get("beginTime")
+    end_time = voucher.get("endTime")
+    time_parts = []
+    if begin_time:
+        time_parts.append(f"生效时间：{begin_time}")
+    if end_time:
+        time_parts.append(f"失效时间：{end_time}")
+    time_text = "，".join(time_parts) if time_parts else "有效期暂无"
+
+    if pay is not None and actual is not None:
+        if pay == 0:
+            deal = "免费领取"
+        else:
+            deal = f"{pay}元抵{actual}元"
+    else:
+        deal = ""
+
+    rules_raw = voucher.get("rules")
+    if rules_raw:
+        if isinstance(rules_raw, list):
+            rules_text = "；".join(rules_raw)
+        else:
+            rules_text = str(rules_raw)
+    else:
+        rules_text = "详见门店"
+
     return (
-        f"{shop_name}店铺优惠券【{voucher.get('title', '')}】{deal}。"
-        f"{voucher.get('subTitle') or ''}"
-        f"（使用规则：{voucher.get('rules') or '详见门店'}）"
+        f"{shop_name}店铺优惠券【{voucher.get('title', '')}】"
+        f"{'，' + deal if deal else ''}"
+        f"{'，' + voucher.get('subTitle', '') if voucher.get('subTitle') else ''}"
+        f"。{stock_text}。{time_text}。"
+        f"使用规则：{rules_text}。"
     )

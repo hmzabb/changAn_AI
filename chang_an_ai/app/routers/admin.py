@@ -49,7 +49,7 @@ def status(request: Request):
         "data": {
             "collection": COLLECTION_NAME,
             **store.source_stats(),
-            "embedding": {"provider": settings.embedding_provider, "model": settings.embedding_model},
+            "embedding": settings.embedding_model,
         },
         "total": None,
     }

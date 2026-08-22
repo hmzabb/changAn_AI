@@ -19,6 +19,6 @@ def health() -> dict:
         "kb_count": kb_count,
         "models": {
             "llm": settings.deepseek_model,
-            "embedding": f"{settings.embedding_provider}:{settings.embedding_model}",
+            "embedding": settings.embedding_model,
         },
     }

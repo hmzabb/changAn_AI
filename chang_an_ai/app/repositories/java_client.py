@@ -105,9 +105,22 @@ class JavaClient:
         return self._get_list("/shop-type/list")
 
     # ---------- 店铺 ----------
-    def list_shops_by_type(self, type_id: int, page: int = 1) -> list[dict]:
-        """GET /shop/of/type?typeId=&current=（不传 x,y → DB 分页，每页 5 条）"""
-        return self._get_list("/shop/of/type", params={"typeId": type_id, "current": page})
+    def list_shops_by_type(self, type_id: int, page: int = 1, x: float | None = None, y: float | None = None) -> list[dict]:
+        """GET /shop/of/type?typeId=&current=（不传 x,y → DB 分页，每页 5 条；
+        传 x,y → 走 Redis GEO 按距离排序（Agent 工具"钟楼附近的美食店"用）"""
+        params: dict = {"typeId": type_id, "current": page}
+        if x is not None and y is not None:
+            params.update({"x": x, "y": y})
+        return self._get_list("/shop/of/type", params=params)
+
+    def list_shops_by_name(self, name: str, page: int = 1) -> list[dict]:
+        """GET /shop/of/name?name=&current=（Agent 按名查店工具用）"""
+        return self._get_list("/shop/of/name", params={"name": name, "current": page})
+
+    def get_shop_detail(self, shop_id: int) -> dict:
+        """GET /shop/{id}——注意此接口 data 是单个店铺对象而非列表（/shop/{id} 需登录吗？
+        免登录，见 MvcConfig 白名单 /shop/**）"""
+        return self._get_list(f"/shop/{shop_id}")
 
     def fetch_all_shops(self) -> list[dict]:
         """全量拉取：遍历所有分类，每个分类内翻页。

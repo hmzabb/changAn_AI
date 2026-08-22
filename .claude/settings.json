@@ -8,7 +8,11 @@
       "Bash(./.venv/python.exe -m pip show fastapi starlette uvicorn openai langgraph langchain-text-splitters chromadb httpx pydantic-settings python-dotenv jieba pytest pytest-asyncio respx)",
       "Bash(./.venv/python.exe -m pip install --dry-run \"langgraph==1.2.11\" \"langchain-text-splitters==1.1.2\")",
       "Bash(./.venv/python.exe -m pip install \"langgraph==1.2.11\" \"langchain-text-splitters==1.1.2\")",
-      "Bash(./.venv/python.exe -c \"import app.main; import app.routers.admin; import app.routers.health; import app.services.ingest_service; import app.repositories.vector_store; print\\('app imports OK'\\)\")"
+      "Bash(./.venv/python.exe -c \"import app.main; import app.routers.admin; import app.routers.health; import app.services.ingest_service; import app.repositories.vector_store; print\\('app imports OK'\\)\")",
+      "Bash(.venv/Scripts/python.exe -c \"from app.config import settings; from app.main import app; from app.services.embedding import get_embedding_client; from app.services.ingest_service import run_ingest; from app.routers import admin, health; print\\('OK, embedding_model =', settings.embedding_model\\)\")",
+      "Bash(\"d:/zmz/project/chang_an_travel/chang_an_ai/.venv/Scripts/python.exe\" --version)",
+      "Bash(./python.exe --version)",
+      "Bash(cmd //c \"d:\\\\\\\\zmz\\\\\\\\project\\\\\\\\chang_an_travel\\\\\\\\chang_an_ai\\\\\\\\.venv\\\\\\\\Scripts\\\\\\\\python.exe --version\")"
     ]
   }
 }

@@ -2,6 +2,5 @@
 __pycache__/
 *.pyc
 .pytest_cache/
-app/data/chroma/
 app/data/sql/*.sql
 .venv/

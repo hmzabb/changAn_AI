@@ -1,4 +1,4 @@
-"""建库流水线：拉数 → 模板化/分块 → embedding → 入 Chroma。
+"""建库流水线：拉数 → 模板化/分块 → embedding → 入 Milvus。
 
 被两处复用：scripts/ingest.py（离线命令行）与 routers/admin.py（HTTP 触发），
 流水线逻辑只写一份，避免"脚本里一套、接口里一套"各自漂移。
@@ -84,14 +84,14 @@ def load_java_chunks() -> list[Chunk]:
 
 
 def run_ingest(sources: list[str] | None = None, progress=None) -> dict:
-    """重建知识库。sources: ["corpus","java"]（默认全部）；progress(msg) 可选进度回调。
+    """重建知识库。sources: ["corpus","java"]（默认全部）；progress(msg) 可选进度回调(实时报告进度)。
 
-    返回 {"sources": {源: chunk数}, "errors": [...], "embedding": provider}。
+    返回 {"sources": {源: chunk数}, "errors": [...], "embedding": 模型名}。
     """
     sources = sources or ["corpus", "java"]
     embedder = get_embedding_client()
     store = get_store()
-    report: dict = {"sources": {}, "errors": [], "embedding": settings.embedding_provider}
+    report: dict = {"sources": {}, "errors": [], "embedding": settings.embedding_model}
 
     for source in sources:
         # ---- 1. 加载本源的 chunks ----
@@ -117,6 +117,7 @@ def run_ingest(sources: list[str] | None = None, progress=None) -> dict:
         store.delete_by_source(source)
         for i in range(0, len(chunks), EMBED_BATCH_SIZE):
             batch = chunks[i : i + EMBED_BATCH_SIZE]
+            # 调用大模型将切分的文本向量化
             embeddings = embedder.embed_texts([c.text for c in batch])
             store.upsert_chunks(batch, embeddings)
             if progress:

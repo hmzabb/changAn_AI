@@ -20,13 +20,12 @@ class Settings(BaseSettings):
     deepseek_base_url: str = "https://api.deepseek.com"
     deepseek_model: str = "deepseek-chat"
 
-    # ---- Embedding（DeepSeek 无 embedding 接口，走硅基流动；可切本地兜底）----
-    # embedding_provider: siliconflow | local
-    embedding_provider: str = "siliconflow"
+    # ---- Embedding（DeepSeek 无 embedding 接口，走硅基流动）----
     siliconflow_api_key: str = ""
     siliconflow_base_url: str = "https://api.siliconflow.cn/v1"
     embedding_model: str = "BAAI/bge-m3"
-    # 重排增强（可选，无网自动降级规则重排）
+
+    # ---- 重排（硅基流动 bge-reranker-v2-m3，免费 API）----
     rerank_enabled: bool = False
     rerank_model: str = "BAAI/bge-reranker-v2-m3"
 
@@ -40,11 +39,12 @@ class Settings(BaseSettings):
     rag_min_score: float = 0.35
     rag_max_context_chars: int = 6000
 
+    # ---- Milvus 向量库（Docker standalone，gRPC 19530 / HTTP 9091）----
+    milvus_uri: str = "http://127.0.0.1:19530"
+
     # ---- 服务 ----
     app_host: str = "127.0.0.1"
     app_port: int = 8000
-    # EMBEDDING_PROVIDER=local 时的模型名（ModelScope 下载 BAAI/bge-m3）
-    local_embedding_model: str = "BAAI/bge-m3"
 
 
 settings = Settings()
