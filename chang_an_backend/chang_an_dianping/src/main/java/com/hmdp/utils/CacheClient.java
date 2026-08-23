@@ -6,11 +6,14 @@ import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.hmdp.entity.Shop;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RBloomFilter;
+import org.redisson.api.RedissonClient;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -25,6 +28,9 @@ import static com.hmdp.utils.RedisConstants.CACHE_SHOP_TTL;
 public class CacheClient {
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+
+    @Resource
+    private RedissonClient redissonClient;
 
     private static final ExecutorService CACHE_REBUILD_EXECUTOR = Executors.newFixedThreadPool(10);
 
@@ -41,9 +47,14 @@ public class CacheClient {
         stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(redisData));
     }
 
-    // 缓存穿透
+    // 缓存穿透（布隆过滤器 + 空值缓存双保险）
     public <R,ID> R queryWithPassThrough(String keyPrefix, ID id, Class<R> type, Function<ID,R> dbFallback,
                                          Long time, TimeUnit unit) {
+        // 布隆过滤器前置过滤：如果布隆过滤器中不存在，直接返回null
+        RBloomFilter<Long> bloomFilter = redissonClient.getBloomFilter(BLOOM_SHOP_KEY);
+        if (bloomFilter.isExists() && !bloomFilter.contains((Long) id)) {
+            return null;
+        }
         // 从redis查询商铺缓存
         String key = keyPrefix + id;
         String json = stringRedisTemplate.opsForValue().get(key);
@@ -52,25 +63,54 @@ public class CacheClient {
             // 如果命中则返回缓存数据
             return JSONUtil.toBean(json, type);
         }
-        // 解决缓存穿透
-        // 判断命中是否为空值
+        // 空值缓存兜底：判断命中是否为空值
         if (json != null) {
-            //因为isNotEmpty方法会判断null和""为false，所以这里判断不为null，就可以判断为空
             return null;
         }
         // 未命中则查询数据库
         R r = dbFallback.apply(id);
         if (r == null) {
-            // 判断数据库中商铺是否存在
-            // 如果不存在则返回失败
+            // 数据库中不存在，缓存空值并返回
             stringRedisTemplate.opsForValue().set(key, "", CACHE_NULL_TTL, TimeUnit.MINUTES);
             return null;
         }
         Random random = new Random();
-        long randomTime = random.nextLong(time-10L,time+10L);
-        // 如果存在则将商铺数据写入redis并返回
+        long randomTime = random.nextLong(time - 10L, time + 10L);
+        // 存在则将数据写入redis并返回
         this.set(key, r, randomTime, unit);
         return r;
+    }
+
+    // 初始化布隆过滤器
+    public void initShopBloomFilter(long expectedInsertions, double falseProbability) {
+        RBloomFilter<Long> bloomFilter = redissonClient.getBloomFilter(BLOOM_SHOP_KEY);
+        boolean initialized = bloomFilter.tryInit(expectedInsertions, falseProbability);
+        if (initialized) {
+            log.info("布隆过滤器初始化成功，预计插入量: {}, 误判率: {}", expectedInsertions, falseProbability);
+        } else {
+            log.info("布隆过滤器已存在，跳过初始化");
+        }
+    }
+
+    // 批量加载ID到布隆过滤器
+    public void loadShopIdsToBloomFilter(List<Long> ids) {
+        RBloomFilter<Long> bloomFilter = redissonClient.getBloomFilter(BLOOM_SHOP_KEY);
+        if (!bloomFilter.isExists()) {
+            log.warn("布隆过滤器未初始化，无法加载数据");
+            return;
+        }
+        for (Long id : ids) {
+            bloomFilter.add(id);
+        }
+        log.info("已向布隆过滤器加载 {} 个ID", ids.size());
+    }
+
+    // 新增商铺时同步更新布隆过滤器
+    public void addToShopBloomFilter(Long id) {
+        RBloomFilter<Long> bloomFilter = redissonClient.getBloomFilter(BLOOM_SHOP_KEY);
+        if (bloomFilter.isExists()) {
+            bloomFilter.add(id);
+        }
     }
 
 

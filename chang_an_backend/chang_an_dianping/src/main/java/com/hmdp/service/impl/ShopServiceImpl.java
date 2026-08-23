@@ -51,12 +51,9 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     private CacheClient cacheClient;
     @Override
     public Result queryById(Long id) {
-        // 缓存穿透
-        // Shop shop = cacheClient.queryWithPassThrough(CACHE_SHOP_KEY,id,Shop.class,id2->getById(id2),CACHE_SHOP_TTL,TimeUnit.MINUTES);
-        // 互斥锁解决缓存击穿
-        // Shop shop = queryWithMutex(id);
-        Shop shop = cacheClient.queryWithLogicalExpire(CACHE_SHOP_KEY,id,Shop.class,id2->getById(id2),CACHE_SHOP_TTL,TimeUnit.MINUTES);
-        if(shop == null){
+        // 布隆过滤器 + 空值缓存解决缓存穿透
+        Shop shop = cacheClient.queryWithPassThrough(CACHE_SHOP_KEY, id, Shop.class, id2 -> getById(id2), CACHE_SHOP_TTL, TimeUnit.MINUTES);
+        if (shop == null) {
             return Result.fail("商铺不存在");
         }
         return Result.ok(shop);
@@ -72,6 +69,8 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
         updateById(shop);
         // 删除缓存
         stringRedisTemplate.delete(CACHE_SHOP_KEY + shop.getId());
+        // 同步布隆过滤器（新增商铺时保证布隆过滤器包含该ID，已存在则幂等无影响）
+        cacheClient.addToShopBloomFilter(shop.getId());
         return Result.ok();
     }
 
