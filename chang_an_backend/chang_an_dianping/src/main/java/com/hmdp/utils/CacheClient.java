@@ -47,37 +47,82 @@ public class CacheClient {
         stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(redisData));
     }
 
-    // 缓存穿透（布隆过滤器 + 空值缓存双保险）
-    public <R,ID> R queryWithPassThrough(String keyPrefix, ID id, Class<R> type, Function<ID,R> dbFallback,
-                                         Long time, TimeUnit unit) {
-        // 布隆过滤器前置过滤：如果布隆过滤器中不存在，直接返回null
+    // 综合方案：同时解决缓存穿透、击穿、雪崩三大问题
+    public <R,ID> R queryWithAllProtection(String keyPrefix, ID id, Class<R> type, Function<ID,R> dbFallback,
+                                           Long time, TimeUnit unit) {
+        // ========== 第一道防线：布隆过滤器防穿透 ==========
         RBloomFilter<Long> bloomFilter = redissonClient.getBloomFilter(BLOOM_SHOP_KEY);
         if (bloomFilter.isExists() && !bloomFilter.contains((Long) id)) {
+            log.debug("布隆过滤器拦截不存在的ID: {}", id);
             return null;
         }
-        // 从redis查询商铺缓存
+
         String key = keyPrefix + id;
         String json = stringRedisTemplate.opsForValue().get(key);
-        if (StrUtil.isNotBlank(json)) {
-            // 判断缓存是否命中
-            // 如果命中则返回缓存数据
-            return JSONUtil.toBean(json, type);
+
+        // ========== 缓存未命中 ==========
+        if (StrUtil.isBlank(json)) {
+            // 查数据库
+            R r = dbFallback.apply(id);
+            if (r == null) {
+                // 数据库也不存在 → 空值缓存防穿透
+                stringRedisTemplate.opsForValue().set(key, "", CACHE_NULL_TTL, TimeUnit.MINUTES);
+                return null;
+            }
+            // 数据库存在 → 写入逻辑过期缓存（防击穿）+ TTL随机化（防雪崩）
+            Random random = new Random();
+            long randomTime = random.nextLong(time - 10L, time + 10L);
+            setWithLogicalExpire(key, r, randomTime, unit);
+            return r;
         }
-        // 空值缓存兜底：判断命中是否为空值
-        if (json != null) {
-            return null;
+
+        // ========== 缓存命中 ==========
+        RedisData redisData = JSONUtil.toBean(json, RedisData.class);
+        JSONObject data = (JSONObject) redisData.getData();
+        R r = JSONUtil.toBean(data, type);
+        LocalDateTime expireTime = redisData.getExpireTime();
+
+        // 判断逻辑过期时间
+        if (expireTime.isAfter(LocalDateTime.now())) {
+            // 未过期 → 直接返回
+            return r;
         }
-        // 未命中则查询数据库
-        R r = dbFallback.apply(id);
-        if (r == null) {
-            // 数据库中不存在，缓存空值并返回
-            stringRedisTemplate.opsForValue().set(key, "", CACHE_NULL_TTL, TimeUnit.MINUTES);
-            return null;
+
+        // ========== 已过期 → 防击穿逻辑 ==========
+        String lockKey = LOCK_SHOP_KEY + id;
+        if (tryLock(lockKey)) {
+            // 双重检查
+            json = stringRedisTemplate.opsForValue().get(key);
+            if (StrUtil.isNotBlank(json)) {
+                redisData = JSONUtil.toBean(json, RedisData.class);
+                expireTime = redisData.getExpireTime();
+                if (expireTime.isAfter(LocalDateTime.now())) {
+                    // 其他线程已重建 → 直接返回
+                    data = (JSONObject) redisData.getData();
+                    r = JSONUtil.toBean(data, type);
+                    unlock(lockKey);
+                    return r;
+                }
+            }
+
+            // 异步重建缓存
+            CACHE_REBUILD_EXECUTOR.submit(() -> {
+                try {
+                    R r1 = dbFallback.apply(id);
+                    if (r1 != null) {
+                        Random random = new Random();
+                        long randomTime = random.nextLong(time - 10L, time + 10L);
+                        setWithLogicalExpire(key, r1, randomTime, unit);
+                    }
+                } catch (Exception e) {
+                    log.error("缓存重建失败", e);
+                } finally {
+                    unlock(lockKey);
+                }
+            });
         }
-        Random random = new Random();
-        long randomTime = random.nextLong(time - 10L, time + 10L);
-        // 存在则将数据写入redis并返回
-        this.set(key, r, randomTime, unit);
+
+        // 返回旧数据（保证用户体验）
         return r;
     }
 
@@ -91,6 +136,7 @@ public class CacheClient {
             log.info("布隆过滤器已存在，跳过初始化");
         }
     }
+
 
     // 批量加载ID到布隆过滤器
     public void loadShopIdsToBloomFilter(List<Long> ids) {
@@ -115,7 +161,8 @@ public class CacheClient {
 
 
     // 逻辑过期解决缓存击穿
-    public <R,ID> R queryWithLogicalExpire(String keyPrefix,ID id,Class<R> type,Function<ID,R> dbFallback,Long time, TimeUnit unit) {
+    public <R,ID> R queryWithLogicalExpire(String keyPrefix,ID id,Class<R> type,Function<ID,R> dbFallback,Long time,
+                                           TimeUnit unit) {
         // 从redis查询商铺缓存
         String key = keyPrefix + id;
         String json = stringRedisTemplate.opsForValue().get(key);

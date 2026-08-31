@@ -51,8 +51,8 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     private CacheClient cacheClient;
     @Override
     public Result queryById(Long id) {
-        // 布隆过滤器 + 空值缓存解决缓存穿透
-        Shop shop = cacheClient.queryWithPassThrough(CACHE_SHOP_KEY, id, Shop.class, id2 -> getById(id2), CACHE_SHOP_TTL, TimeUnit.MINUTES);
+        // 综合方案：同时解决缓存穿透、击穿、雪崩三大问题
+        Shop shop = cacheClient.queryWithAllProtection(CACHE_SHOP_KEY, id, Shop.class, id2 -> getById(id2), CACHE_SHOP_TTL, TimeUnit.MINUTES);
         if (shop == null) {
             return Result.fail("商铺不存在");
         }

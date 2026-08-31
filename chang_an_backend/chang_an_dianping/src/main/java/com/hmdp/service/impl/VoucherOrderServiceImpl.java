@@ -12,6 +12,10 @@ import com.hmdp.utils.RedisIDWorker;
 import com.hmdp.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
 import com.hmdp.entity.SeckillVoucher;
+//******** RocketMQ 相关导入（已注释，如需切换回 RocketMQ 请取消注释）********
+//import com.hmdp.service.ISeckillMessageService;
+//import org.apache.rocketmq.client.producer.SendResult;
+//import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.aop.framework.AopContext;
@@ -26,6 +30,7 @@ import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingDeque;
@@ -55,6 +60,13 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
     @Resource
     private RedissonClient redissonClient;
+
+    //******** RocketMQ 相关依赖（已注释，如需切换回 RocketMQ 请取消注释）********
+    //@Resource
+    //private RocketMQTemplate rocketMQTemplate;
+
+    //@Resource
+    //private ISeckillMessageService seckillMessageService;
 
     private static final DefaultRedisScript<Long> SECKILL_SCRIPT;
     static {
@@ -152,7 +164,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             }
         }
     }*/
-    private void handleVoucherOrder(VoucherOrder voucherOrder) {
+    public void handleVoucherOrder(VoucherOrder voucherOrder) {
         //锁加到事务外面避免脏读
         //获取锁对象
         Long userId = voucherOrder.getUserId();
@@ -213,6 +225,29 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             //不是0代表没有购买资格
             return Result.fail(r==1?"库存不足":"不能重复下单");
         }
+
+        // ===== Redis Stream 版本：发送消息到 Redis Stream =====
+        Map<String, Object> msgMap = new HashMap<>();
+        msgMap.put("userId", userId);
+        msgMap.put("voucherId", voucherId);
+        msgMap.put("id", orderId);
+        stringRedisTemplate.opsForStream().add("stream.orders", msgMap);
+
+        //******** RocketMQ 版本（已注释，如需切换回 RocketMQ 请取消注释）********
+        /*
+        try {
+            Map<String, Object> rocketMsgMap = new HashMap<>();
+            rocketMsgMap.put("userId", userId);
+            rocketMsgMap.put("voucherId", voucherId);
+            rocketMsgMap.put("id", orderId);
+            SendResult sendResult = rocketMQTemplate.syncSend("seckill-order-topic", rocketMsgMap);
+            log.info("RocketMQ消息发送成功，orderId={}, status={}", orderId, sendResult.getSendStatus());
+        } catch (Exception e) {
+            // 如果 RocketMQ 发送失败，使用本地消息表补偿
+            log.error("RocketMQ消息发送失败，使用本地消息表补偿：orderId={}", orderId, e);
+            seckillMessageService.sendWithLocalMessage(userId, voucherId, orderId);
+        }
+        */
 
         //获取代理对象（事务）
         proxy = (IVoucherOrderService) AopContext.currentProxy();

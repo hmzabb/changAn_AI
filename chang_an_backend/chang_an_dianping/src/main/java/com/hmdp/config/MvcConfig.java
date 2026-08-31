@@ -26,6 +26,8 @@ public class MvcConfig implements WebMvcConfigurer {
                         "/user/login",
                         "/user/code",
                         "/user/info"
+                        //******** RocketMQ 测试接口白名单（已注释，如需切换回 RocketMQ 请取消注释）********
+                        //"/test/**"
                 ).order(1);
         registry.addInterceptor(new RefreshTokenInterceptor(stringRedisTemplate)).order(0);
     }
