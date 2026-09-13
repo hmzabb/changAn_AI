@@ -55,7 +55,7 @@ class VectorStore:
         from pymilvus.client.types import LoadState
         if self._client.has_collection(COLLECTION_NAME):
             fields = {f["name"] for f in self._client.describe_collection(COLLECTION_NAME)["fields"]}
-            if not _EXPECTED_FIELDS <= fields:  # 残留的旧 schema collection → 重建
+            if not _EXPECTED_FIELDS <= fields:  # 如果期望的字段有缺失 → 重建
                 self._client.drop_collection(COLLECTION_NAME)
             else:
                 state_info = self._client.get_load_state(COLLECTION_NAME)
@@ -106,8 +106,7 @@ class VectorStore:
 
     @classmethod
     def _where_to_expr(cls, where: dict | None) -> str:
-        """Chroma 风格的 where dict → Milvus expr。
-
+        """
         白名单 source/type（schema 里唯一建的标量列），传其他键直接报错——
         宁可炸在开发期，也不让"过滤静默失效"污染检索结果。
         """
@@ -168,7 +167,7 @@ class VectorStore:
 
     def source_stats(self) -> dict:
         """按 (source, type) 分组计数 —— admin/status 展示知识库构成。
-        Milvus 无 GROUP BY，分页拉回 Python 聚合（与 Chroma 版思路一致）。"""
+        Milvus 无 GROUP BY，分页拉回 Python 聚合。"""
         total = self.count()
         if total == 0:
             return {"total": 0, "by_source": {}}

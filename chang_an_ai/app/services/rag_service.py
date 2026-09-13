@@ -14,13 +14,10 @@ from app.services.llm import chat_stream
 from app.services.query_rewrite import rewrite
 from app.services.reranker import rerank
 
-
 def retrieve(query: str) -> list[dict]:
     """检索：embedding → 向量库召回 top8 → 重排 top4。
 
     返回 [{text, metadata, distance, similarity}]，similarity = 1 - distance
-    （Chroma cosine 空间的 distance 是 1-相似度，这里换算回直观的相似度）。
-
     embedding 或 Milvus 异常时返回空列表，由上层 fallback 话术兜底——
     检索失败不阻塞问答，用户至少能得到"暂无相关信息"的回复。
     """
@@ -30,8 +27,6 @@ def retrieve(query: str) -> list[dict]:
     except Exception:
         return []
     # Milvus 版 query 返回 score（COSINE 相似度，越大越相关），直接作为 similarity。
-    # （注意与 Chroma 版的距离语义相反——这就是 repository 层收敛的好处：
-    # 换向量库只影响本层，上层统一用 similarity 概念。）
     hits = [dict(h, similarity=h["score"]) for h in hits]
     return rerank(query, hits, top_k=settings.rag_rerank_top_k)
 
@@ -71,7 +66,7 @@ def answer(query: str, history: list[dict]):
     事件序列：status("正在检索") → sources / status("生成中") → delta* → done。
     比之前多一个 status 事件：前端收到后更新进度文案，用户不会觉得"卡死了"。
 
-    防幻觉三板斧在此汇合：
+    防幻觉三板斧：
     1. prompt 强制"没有就明说" + [n] 引用标注（RAG_SYSTEM）；
     2. 相似度阈值兜底：全部低于阈值时直接返回话术、不进 LLM，
        从机制上杜绝幻觉，还省一次调用；

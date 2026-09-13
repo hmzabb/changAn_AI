@@ -118,9 +118,9 @@ def _mmr_select(scored: list[tuple[float, dict]], top_k: int) -> list[dict]:
     Returns:
         去重后的 top_k 条 hit 列表
     """
-    selected: list[dict] = []
-    selected_tokens: list[set[str]] = []
-    remaining = scored[:]  # 浅拷贝，避免修改调用方传入的列表
+    selected: list[dict] = []  # 已选条目
+    selected_tokens: list[set[str]] = []  # 已选条目的词集
+    remaining = scored.copy()  # 浅拷贝，避免修改调用方传入的列表
 
     while remaining and len(selected) < top_k:
         best, best_idx, best_mmr = None, 0, -1.0

@@ -145,9 +145,9 @@ const app = new Vue({
     toSource(s) {
       // 来源卡片跳转：店铺/券 → 店铺详情；笔记 → 笔记详情；语料无链接
       if (s.type === "shop" || s.type === "voucher") {
-        location.href = "/shop-detail.html?id=" + s.shop_id;
+        location.href = "./shop-detail.html?id=" + s.shop_id;
       } else if (s.type === "blog") {
-        location.href = "/blog-detail.html?id=" + s.shop_id;
+        location.href = "./blog-detail.html?id=" + s.id;
       }
     },
     scrollToBottom() {

@@ -2,7 +2,7 @@
 
 面试点：
 - 状态机结构：START → agent(LLM+bind_tools) → 条件边（有 tool_calls 吗？）
-  → tools(ToolNode) ⇄ agent → END，由 create_react_agent 预构建好；
+  → tools(ToolNode) ⇄ agent → END，由 create_agent 预构建好；
   messages 用 add_messages reducer 累加，天然支持多轮工具调用；
 - recursion_limit=12：约等于最多 6 轮工具调用（每轮 2 个节点），
   防"查不到→反复查"死循环（另一个防线在 prompt 的"失败换工具"要求）；
@@ -23,7 +23,7 @@ def build_agent():
     # 懒加载：langchain/langgraph 与 pydantic 2.13 兼容性问题导致导入耗时较长，
     # 放在函数内部可避免阻塞服务启动（RAG 模式不需要这些依赖）
     from langchain_openai import ChatOpenAI
-    from langgraph.prebuilt import create_react_agent
+    from langchain.agents import create_agent
     from app.agent.tools import ALL_TOOLS
 
     model = ChatOpenAI(
@@ -34,7 +34,7 @@ def build_agent():
         timeout=60,
         max_retries=2,
     )
-    return create_react_agent(model, ALL_TOOLS, prompt=AGENT_SYSTEM)
+    return create_agent(model, ALL_TOOLS, system_prompt=AGENT_SYSTEM)
 
 
 # 懒加载单例：首次 Agent 请求时才构建，服务启动不阻塞

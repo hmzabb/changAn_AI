@@ -1,11 +1,8 @@
-<p align="center">
-  <img src="photos/数据流图.png" alt="长安文旅探店助手 - 数据流图" width="100%"/>
-</p>
-
 <h1 align="center">🏮 长安文旅探店助手</h1>
+
 <p align="center">
   <strong>Java + Python 双栈 AI 探店平台</strong><br>
-  以 Spring Boot 点评平台（这部分本文不做详细说明，详见黑马点评项目）为底座，叠加 DeepSeek 大模型 + LangGraph Agent + Milvus 向量检索<br>
+  以 Spring Boot 点评平台为底座，叠加 DeepSeek 大模型 + LangGraph Agent + Milvus 向量检索<br>
   打造长安（西安）文旅场景下的智能问答、探店笔记 AI 辅助与智能推荐 Agent
 </p>
 
@@ -18,7 +15,6 @@
   <img src="https://img.shields.io/badge/Milvus-3.0-00BEBE?style=flat-square" alt="Milvus"/>
   <img src="https://img.shields.io/badge/DeepSeek-V4_Flash-4B6BFB?style=flat-square" alt="DeepSeek"/>
   <img src="https://img.shields.io/badge/nginx-1.18-009639?style=flat-square&logo=nginx" alt="nginx"/>
-  <img src="https://img.shields.io/badge/license-MIT-yellow?style=flat-square" alt="license"/>
 </p>
 
 ---
@@ -29,10 +25,15 @@
 - [✨ 核心亮点](#-核心亮点)
 - [🎬 演示剧本与截图](#-演示剧本与截图)
 - [🏗 系统架构](#-系统架构)
+- [🛠 技术栈总览](#-技术栈总览)
 - [📂 项目结构](#-项目结构)
 - [🚀 快速开始](#-快速开始)
 - [📡 接口设计](#-接口设计)
 - [🧠 核心功能深度解析](#-核心功能深度解析)
+  - [RAG 智能问答](#1-rag-智能问答多源知识库)
+  - [探店 Agent](#2-探店-agentlanggraph)
+  - [笔记 AI 辅助](#3-笔记-ai-辅助)
+  - [Java 后端核心能力](#4-java-后端核心能力)
 - [🗺 开发路线图](#-开发路线图)
 - [📚 面试知识点](#-面试知识点)
 
@@ -46,43 +47,12 @@
 
 ## ✨ 核心亮点
 
-<table>
-<tr>
-<td width="50%">
-
-### 🔍 长安文旅智能问答（RAG）
-以西安文旅知识库 + 平台实时店铺/笔记数据为语料，流式回答旅行问题，**回答带引用来源**，一键跳转详情页。
-
-> *"西安三日游怎么安排？"*
-> *"回民街有什么好吃的？"*
-
-</td>
-<td width="50%">
-
-### 🤖 探店智能 Agent
-多轮对话中自主调用 6 个工具（查店铺/分类/详情/优惠券/笔记/知识），完成复合任务。
-
-> *"帮我找钟楼附近人均 80 以下的美食店，再看看有没有优惠券"*
-
-</td>
-</tr>
-<tr>
-<td width="50%">
-
-### ✍️ 探店笔记 AI 辅助
-一键生成候选标题、按风格润色正文、情感分析自检 + 评论区舆情监控。
-
-> *文艺 / 幽默 / 朴实 三种风格随心切换*
-
-</td>
-<td width="50%">
-
-### 🎯 RAG 检索 Hit@5=100%
-基于 bge-m3 向量 + jieba 关键词 + MMR 重排的混合检索，20 组标注 QA 实测 **Hit@5=100%、MRR=0.967**。
-
-</td>
-</tr>
-</table>
+| 功能 | 简介 | 示例对话 |
+|------|------|----------|
+| 🔍 **RAG 智能问答** | 西安文旅知识库 + 平台实时数据为语料，流式回答带引用来源，一键跳转详情页 | 「西安三日游怎么安排？」 |
+| 🤖 **探店 Agent** | 多轮对话中自主调用 6 个工具，完成复合任务 | 「钟楼附近人均 80 以下的美食店，有没有优惠券？」 |
+| ✍️ **笔记 AI 辅助** | 一键生成候选标题、按风格润色正文、情感分析自检 + 评论区舆情监控 | 文艺 / 幽默 / 朴实三种风格随心切换 |
+| 🎯 **Hit@5=100%** | bge-m3 向量 + jieba 关键词 + MMR 重排的混合检索，20 组标注 QA 实测 MRR=0.967 | — |
 
 ---
 
@@ -90,11 +60,11 @@
 
 | 场景 | 对话示例 | 涉及技术 |
 |------|----------|----------|
-| 🗺 **RAG 知识问答** | 「西安三日游怎么安排？」 | 向量检索 → 重排 → 流式生成 → 引用来源 |
-| 🍜 **Agent 探店** | 「回民街有什么好吃的店？」 | 意图路由 → 查店名 → 查优惠券 |
-| 🧭 **多轮距离排序** | 「人均 50 以下再近一点」 | 多轮改写 → 查分类 + 坐标距离排序 |
-| ✍️ **AI 辅助发笔记** | 生成标题（5选1）→ 润色 → 情感自检 | 标题生成 / 风格润色 / 情感分析 |
-| 📊 **管理后台** | `GET /api/ai/admin/status` | 向量库规模与来源分布 |
+| 🗺 RAG 知识问答 | 「西安三日游怎么安排？」 | 向量检索 → 重排 → 流式生成 → 引用来源 |
+| 🍜 Agent 探店 | 「回民街有什么好吃的店？」 | 意图路由 → 查店名 → 查优惠券 |
+| 🧭 多轮距离排序 | 「人均 50 以下再近一点」 | 多轮改写 → 查分类 + 坐标距离排序 |
+| ✍️ AI 辅助发笔记 | 生成标题（5选1）→ 润色 → 情感自检 | 标题生成 / 风格润色 / 情感分析 |
+| 📊 管理后台 | `GET /api/ai/admin/status` | 向量库规模与来源分布 |
 
 <table>
 <tr>
@@ -104,16 +74,16 @@
 </td>
 <td width="33%" align="center">
   <strong>📝 AI 候选标题（5选1）</strong><br><br>
-  <img src="photos/Snipaste_2026-08-23_00-27-59.png" alt="AI 智能问答" width="100%"/>
+  <img src="photos/Snipaste_2026-08-23_00-27-59.png" alt="AI 候选标题" width="100%"/>
 </td>
 <td width="33%" align="center">
   <strong>🗺 AI 智能问答（RAG 流式回答带引用来源）</strong><br><br>
-  <img src="photos/Snipaste_2026-08-23_00-31-41.png" alt="Agent 多轮对话" width="100%"/>
+  <img src="photos/Snipaste_2026-08-23_00-31-41.png" alt="RAG 问答" width="100%"/>
 </td>
 </tr>
 <tr>
 <td width="33%" align="center">
-  <strong>✨️ AI 风格润色</strong><br><br>
+  <strong>✨ AI 风格润色</strong><br><br>
   <img src="photos/Snipaste_2026-08-23_00-28-25.png" alt="风格润色" width="100%"/>
 </td>
 <td width="33%" align="center">
@@ -122,7 +92,7 @@
 </td>
 <td width="33%" align="center">
   <strong>🤖 Agent 多轮对话（工具调用 + 距离排序）</strong><br><br>
-  <img src="photos/Snipaste_2026-08-23_00-31-56.png" alt="多轮对话" width="100%"/>
+  <img src="photos/Snipaste_2026-08-23_00-31-56.png" alt="Agent 多轮对话" width="100%"/>
 </td>
 </tr>
 </table>
@@ -131,30 +101,98 @@
 
 ## 🏗 系统架构
 
-### 数据流全景图
+### 👁 架构概览
 
-```
-              浏览器 localhost:8080
-               │
-               ├─ 静态页 /                          → nginx 静态资源
-               ├─ /api/*（业务请求）                  → nginx → Java 8081
-               ├─ /api/ai/chat|health|admin         → nginx 直连 Python 8000 ⚡ SSE 流式
-               └─ /api/ai/assist/*（笔记AI辅助）      → Java 8081 → 转发 Python 8000
-                                                          │
-                      Python 8000 ──── httpx ────→ Java 8081（拉数据建库 + Agent 工具实时查询）
-                            │
-                            ├─ DeepSeek API（对话/生成/function calling）
-                            ├─ SiliconFlow API（bge-m3 embedding）
-                            └─ Milvus Docker（127.0.0.1:19530 gRPC | :9091 HTTP 探活）
+> **3 秒看懂**：nginx 网关分流 → Java 管业务 / Python 管 AI → DeepSeek + Milvus 智能增强
+
+```mermaid
+graph LR
+    Browser["🖥 浏览器<br/>:8080"]
+    Nginx["🔀 nginx<br/>前缀分流"]
+    Java["☕ Spring Boot<br/>业务 :8081<br/>MySQL + Redis"]
+    Python["🐍 FastAPI<br/>AI :8000<br/>LangGraph + Milvus"]
+    Cloud["☁️ 云服务<br/>DeepSeek + SiliconFlow"]
+
+    Browser -->|"HTTP"| Nginx
+    Nginx -->|"/api/* 业务"| Java
+    Nginx -->|"/api/ai/chat SSE"| Python
+    Nginx -->|"/api/ai/assist/* 鉴权"| Java
+    Python -->|"LLM"| Cloud
+    Python -.->|"httpx 查数据"| Java
+    Java -.->|"Hutool 转发"| Python
+
+    style Browser fill:#e1f5ff,stroke:#1976D2
+    style Nginx fill:#fff3e0,stroke:#FF9800
+    style Java fill:#f3e5f5,stroke:#7B1FA2
+    style Python fill:#e8f5e9,stroke:#388E3C
+    style Cloud fill:#fce4ec,stroke:#E91E63
 ```
 
-### 三大核心架构决策
+> 📐 **高清可编辑架构图**：[photos/architecture.drawio](photos/architecture.drawio)（VS Code 安装 Draw.io Integration 插件即可直接编辑）
+
+### 🔄 数据流全景图（核心请求怎么走）
+
+![alt text](photos/项目数据流图.png)
+
+### 🛣 Nginx 路由规则（流量怎么分）
+
+| 路径前缀 | 目标 | 说明 |
+|----------|------|------|
+| `/` | nginx 静态资源 | 前端 HTML/CSS/JS 直接托管 |
+| `/api/*` | Java :8081 | 店铺/笔记/用户/优惠券等业务 API |
+| `/api/ai/chat` | Python :8000 | **SSE 流式直连**（绕过 Java，避免缓冲阻塞） |
+| `/api/ai/health` | Python :8000 | 健康检查 |
+| `/api/ai/admin/**` | Python :8000 | 管理接口（仅限本机，双保险鉴权） |
+| `/api/ai/assist/*` | Java :8081 → Python :8000 | **Java 转发**（需登录鉴权 + 非流式） |
+
+### 💡 三大核心架构决策（为什么这么设计？）
 
 | # | 决策 | 为什么 | 技术细节 |
 |---|------|--------|----------|
-| 1 | **流式走 nginx 直连，非流式走 Java 转发** | RestTemplate 基于 HttpURLConnection 会整体缓冲，SSE 会被吞成"等 20 秒一次性吐全文" | nginx `proxy_buffering off` 逐帧透传；前缀最长匹配天然分流，同源 8080 无 CORS |
-| 2 | **Python 不直连 MySQL** | 规避内网连通性风险，Python 定位为"Java 之上的智能层" | 所有数据经 Java REST API 获取，httpx 异步调用 |
+| 1 | **流式走 nginx 直连，非流式走 Java 转发** | RestTemplate 基于 HttpURLConnection 会整体缓冲，SSE 会被吞成「等 20 秒一次性吐全文」 | nginx `proxy_buffering off` 逐帧透传；前缀最长匹配天然分流，同源 8080 无 CORS |
+| 2 | **Python 不直连 MySQL** | 规避内网连通性风险，Python 定位为「Java 之上的智能层」 | 所有数据经 Java REST API 获取，httpx 异步调用 |
 | 3 | **统一返回体 `{success, errorMsg, data, total}`** | 前端拦截器只认 `success` 字段，一条链路三种语言格式统一 | Python 模仿 Java `Result` 信封，Java 转发零改造透传 |
+
+---
+
+## 🛠 技术栈总览
+
+### 整体一览
+
+| 层级 | 技术 | 版本 | 用途 |
+|------|------|------|------|
+| **网关** | nginx | 1.18 | 前缀分流 + 静态资源 + SSE 流式透传 |
+| **Java 业务** | Spring Boot | 2.7.18 | 店铺/笔记/用户/优惠券/秒杀 REST API |
+| | MyBatis Plus | 3.x | ORM + 分页 |
+| | Redis | 7.x | 缓存 / Token / 分布式锁 / Stream / GEO |
+| | Redisson | 3.22.0 | 分布式锁 / 布隆过滤器 |
+| | MySQL | 8.0 | 业务数据持久化 |
+| **Python AI** | FastAPI | 0.115 | AI 服务（ASGI 原生流式） |
+| | LangGraph | — | Agent 状态图编排 |
+| | Milvus | 3.0 | 向量检索（Docker 部署） |
+| **云服务** | DeepSeek | V4 Flash | 对话生成 / Function Calling |
+| | SiliconFlow | — | bge-m3 Embedding（1024 维） |
+
+### Java ↔ Python 协作关系
+
+```
+┌─────────────────────────────────────────────────┐
+│                   Java 8081                      │
+│  店铺 / 笔记 / 用户 / 优惠券 / 秒杀 / 签到         │
+│  缓存三防 / 分布式锁 / GEO 排序 / Stream 消息队列  │
+└──────────────┬──────────────────────────────────┘
+               │ REST API（httpx 异步调用）
+               ▼
+┌─────────────────────────────────────────────────┐
+│                  Python 8000                     │
+│  RAG 问答 / Agent 工具调用 / 笔记 AI 辅助         │
+│  向量检索 / 多轮改写 / 重排 / 流式生成            │
+└──────────────┬──────────────────────────────────┘
+               │
+    ┌──────────┼──────────┐
+    ▼          ▼          ▼
+  DeepSeek  SiliconFlow  Milvus
+```
 
 ---
 
@@ -162,60 +200,63 @@
 
 ```
 chang_an_travel/
-├──  README.md
-├── 🖼 数据流图.png
+├── README.md
+├── photos/                           # 演示截图
 │
-├── 📁 chang_an_ai/                    # 🐍 Python AI 服务（FastAPI, port 8000）
-│   ├── run.py                         #   启动入口
-│   ├── requirements.txt               #   Python 依赖
-│   ├── .env                           #   API Key 配置
+├── chang_an_ai/                      # Python AI 服务（FastAPI, port 8000）
+│   ├── run.py                        #   启动入口
+│   ├── requirements.txt              #   Python 依赖
+│   ├── .env / .env.example           #   API Key 配置
 │   ├── app/
-│   │   ├── main.py                    #   FastAPI 入口 + lifespan 懒加载向量库
-│   │   ├── config.py                  #   pydantic-settings 配置管理
-│   │   ├── routers/                   #   🌐 路由层
-│   │   │   ├── chat.py                #     SSE 流式聊天（RAG/Agent/auto 意图路由）
-│   │   │   ├── assistant.py           #     笔记 AI 辅助（标题/润色/情感）
-│   │   │   ├── admin.py               #     知识库管理（仅 127.0.0.1）
-│   │   │   └── health.py              #     健康检查
-│   │   ├── services/                  #   🧠 业务逻辑层
-│   │   │   ├── llm.py                 #     DeepSeek 对话/生成接口
-│   │   │   ├── embedding.py           #     bge-m3 向量化
-│   │   │   ├── rag_service.py         #     RAG 检索+生成编排
-│   │   │   ├── agent_service.py       #     LangGraph Agent 编排
-│   │   │   ├── assistant_service.py   #     笔记 AI 辅助
-│   │   │   ├── ingest_service.py      #     知识库入库
-│   │   │   ├── chunking.py            #     文档分块策略
-│   │   │   ├── query_rewrite.py       #     多轮查询改写
-│   │   │   ├── reranker.py            #     重排序（jieba+MMR）
-│   │   │   └── session_store.py       #     会话管理
-│   │   ├── repositories/              #   🗄 数据访问层
-│   │   │   ├── vector_store.py        #     Milvus 向量库封装
-│   │   │   └── java_client.py         #     httpx 调用 Java API
-│   │   ├── agent/                     #   🤖 Agent 模块
-│   │   │   ├── state.py               #     LangGraph 状态定义
-│   │   │   ├── graph.py               #     状态图（agent ⇄ tools）
-│   │   │   └── tools.py               #     6 个工具函数
-│   │   ├── prompts/                   #   💬 提示词模板
-│   │   │   ├── rag.py                 #     RAG 回答 prompt
-│   │   │   ├── rewrite.py             #     查询改写 prompt
-│   │   │   ├── agent.py               #     Agent system prompt
-│   │   │   └── assistant.py           #     标题/润色/情感 prompt
-│   │   └── data/                      #   📊 数据资源
-│   │       ├── corpus/                #     西安文旅语料（景点/美食/攻略）
-│   │       └── sql/                   #     西安种子数据 SQL
-│   ├── scripts/                       #   🔧 工具脚本
-│   │   ├── ingest.py                  #     知识库建库
-│   │   ├── eval_retrieval.py          #     检索效果评估
-│   │   └── demo_check.sh              #     一键探活
-│   └── tests/                         #   ✅ pytest 测试（fake LLM/embedding + respx mock）
+│   │   ├── main.py                   #   FastAPI 入口 + lifespan 懒加载
+│   │   ├── config.py                 #   pydantic-settings 配置管理
+│   │   ├── routers/                  #   路由层
+│   │   │   ├── chat.py               #     SSE 流式聊天（rag/agent/auto）
+│   │   │   ├── assistant.py          #     笔记 AI 辅助（标题/润色/情感）
+│   │   │   ├── admin.py              #     知识库管理（仅 127.0.0.1）
+│   │   │   └── health.py             #     健康检查
+│   │   ├── services/                 #   业务逻辑层
+│   │   │   ├── rag_service.py        #     RAG 检索+生成编排
+│   │   │   ├── agent_service.py      #     LangGraph Agent 编排
+│   │   │   ├── assistant_service.py  #     笔记 AI 辅助
+│   │   │   ├── ingest_service.py     #     知识库入库
+│   │   │   ├── llm.py                #     DeepSeek 对话/生成接口
+│   │   │   ├── embedding.py          #     bge-m3 向量化
+│   │   │   ├── chunking.py           #     文档分块策略
+│   │   │   ├── query_rewrite.py      #     多轮查询改写
+│   │   │   ├── reranker.py           #     重排序（jieba+MMR）
+│   │   │   └── session_store.py      #     会话管理
+│   │   ├── repositories/             #   数据访问层
+│   │   │   ├── vector_store.py       #     Milvus 向量库封装
+│   │   │   └── java_client.py        #     httpx 调用 Java API
+│   │   ├── agent/                    #   Agent 模块
+│   │   │   ├── state.py              #     LangGraph 状态定义
+│   │   │   ├── graph.py              #     状态图（agent ⇄ tools）
+│   │   │   └── tools.py              #     6 个工具函数
+│   │   ├── prompts/                  #   提示词模板
+│   │   │   ├── rag.py / rewrite.py / agent.py / assistant.py
+│   │   └── data/                     #   数据资源
+│   │       ├── corpus/               #     西安文旅语料（景点/美食/攻略）
+│   │       └── sql/                  #     西安种子数据 SQL
+│   ├── scripts/                      #   工具脚本
+│   │   ├── ingest.py                 #     知识库建库
+│   │   ├── eval_retrieval.py         #     检索效果评估
+│   │   └── demo_check.sh             #     一键探活
+│   └── tests/                        #   pytest（fake LLM/embedding + respx mock）
 │
-└── 📁 chang_an_backend/               # ☕ Java 后端 + nginx 网关
-    ├── chang_an_dianping/              #   Spring Boot 2.7.18（port 8081）
+└── chang_an_backend/                 # Java 后端 + nginx 网关
+    ├── chang_an_dianping/            #   Spring Boot 2.7.18（port 8081）
+    │   ├── pom.xml
+    │   ├── docker-compose.yml        #     RocketMQ 一键部署（预留）
     │   └── src/main/java/com/hmdp/
-    │       ├── controller/             #     店铺/笔记/用户/优惠券/AI 转发
-    │       ├── service/                #     缓存穿透/击穿/秒杀/签到/分布式锁
-    │       └── utils/                  #     Redis token/拦截器/全局 ID
-    └── nginx-1.18.0/                   #   nginx + 前端静态页（port 8080）
+    │       ├── controller/           #     店铺/笔记/用户/优惠券/AI 转发
+    │       ├── service/              #     缓存穿透/击穿/秒杀/签到/分布式锁
+    │       ├── config/               #     MVC/MyBatis/Redisson 配置
+    │       ├── utils/                #     CacheClient/RedisIDWorker/拦截器
+    │       ├── consumer/             #     SeckillOrderConsumer（RocketMQ 预留）
+    │       ├── dto/entity/mapper/    #     分层架构
+    │       └── HmDianPingApplication.java
+    └── nginx-1.18.0/                 #   nginx + 前端静态页（port 8080）
 ```
 
 ---
@@ -229,7 +270,7 @@ chang_an_travel/
 | Java | 17+ | Spring Boot 后端 |
 | Python | 3.11 | AI 服务 |
 | MySQL | 8.0 | 业务数据 |
-| Redis | 7.x | 缓存/Token/分布式锁 |
+| Redis | 7.x | 缓存 / Token / 分布式锁 |
 | Docker | 20+ | Milvus 向量数据库 |
 | nginx | 1.18 | 网关 + 静态资源 |
 
@@ -281,7 +322,7 @@ start nginx.exe
 ### 4️⃣ 打开浏览器
 
 ```
-http://localhost:8080 → 点击底部「AI 助手」tab 开始体验 🎉
+http://localhost:8080 → 点击底部「AI 助手」tab 开始体验
 ```
 
 ---
@@ -293,7 +334,7 @@ http://localhost:8080 → 点击底部「AI 助手」tab 开始体验 🎉
 | 方法 | 路径 | 说明 | 流式 |
 |------|------|------|:----:|
 | `GET` | `/api/ai/health` | 健康检查，返回 `{status, kb_count, models}` | |
-| `POST` | `/api/ai/chat` | 聊天统一入口，`mode: rag\|agent\|auto` 意图路由 | ⚡ SSE |
+| `POST` | `/api/ai/chat` | 聊天统一入口，`mode: rag\|agent\|auto` 意图路由 | SSE |
 | `POST` | `/api/ai/assist/title` | 生成 5 个候选标题 | |
 | `POST` | `/api/ai/assist/polish` | 按风格润色（文艺/幽默/朴实） | |
 | `POST` | `/api/ai/assist/sentiment` | 情感分析（发帖自检 / 评论区舆情） | |
@@ -319,19 +360,19 @@ http://localhost:8080 → 点击底部「AI 助手」tab 开始体验 🎉
 ### 1. RAG 智能问答（多源知识库）
 
 ```
-📥 入库链路
+入库链路
   corpus 语料（md 按二级标题 400-600 字 + overlap 80）
   + 店铺/笔记/券（一条记录一个 chunk）
   → bge-m3 embedding（1024 维）
   → Milvus collection: changan_kb（COSINE 度量，AUTOINDEX）
 
-📤 查询链路
+查询链路
   用户问题 → 多轮 query 改写（LLM + 启发式短路）
   → embedding → 召回 Top8
   → 重排 Top4（jieba 关键词 + 类型商圈匹配 + 质量分 + MMR）
   → 拼 prompt → DeepSeek 流式生成 → SSE 推送给前端
 
-🛡 防幻觉三板斧
+防幻觉三板斧
   ① prompt 强制「知识库没有就明说」
   ② score < 0.35 阈值兜底，不进 LLM
   ③ 句末 [1][2] 引用标注，前端渲染「参考来源」卡片可点击跳转
@@ -343,7 +384,7 @@ http://localhost:8080 → 点击底部「AI 助手」tab 开始体验 🎉
 状态图:  START → agent(LLM+tools) → 条件边 → tools(ToolNode) ⇄ agent → END
          max_iter=6 防死循环，astream_events v2 流式
 
-🛠 6 个工具:
+6 个工具:
   ┌──────────────┬────────────────────────────────┐
   │ 工具          │ 数据来源                        │
   ├──────────────┼────────────────────────────────┤
@@ -355,96 +396,94 @@ http://localhost:8080 → 点击底部「AI 助手」tab 开始体验 🎉
   │ 查知识        │ 本地向量库（source=corpus 过滤） │
   └──────────────┴────────────────────────────────┘
 
-🛡 工具失败兜底: 捕获异常 → 返回结构化错误文本给 LLM → 换策略重试
+工具失败兜底: 捕获异常 → 返回结构化错误文本给 LLM → 换策略重试
 ```
 
 ### 3. 笔记 AI 辅助
 
 | 功能 | 输入 | 输出 | 风格选项 |
 |------|------|------|----------|
-| 📝 标题生成 | 笔记正文 + 店铺名 | 5 个候选标题（前端点选回填） | - |
-| ✨ 风格润色 | 原始文本 | 润色后文本 | 文艺 / 幽默 / 朴实 |
-| 🎭 情感分析 | 单条文本 / 评论列表 | `{sentiment, score, keywords, summary}` | - |
+| 标题生成 | 笔记正文 + 店铺名 | 5 个候选标题（前端点选回填） | — |
+| 风格润色 | 原始文本 | 润色后文本 | 文艺 / 幽默 / 朴实 |
+| 情感分析 | 单条文本 / 评论列表 | `{sentiment, score, keywords, summary}` | — |
+
+### 4. Java 后端核心能力
+
+> Spring Boot 2.7.18 + MyBatis Plus + Redis + Redisson，提供店铺/笔记/用户/优惠券/秒杀等完整业务链路，同时作为 AI 层的数据底座。
+
+#### 4.1 缓存三大问题综合防护
+
+```
+请求 → 布隆过滤器（第一道防线）→ Redis 缓存命中？
+         ├─ 拦截：ID 不存在 → 直接返回 null（防穿透）
+         └─ 放行 → 缓存存在？
+                    ├─ 不存在 → 查库 → 空值缓存（防穿透）+ 逻辑过期缓存 → 返回
+                    └─ 存在 → 逻辑过期？
+                               ├─ 未过期 → 直接返回
+                               └─ 已过期 → 抢互斥锁 → 异步重建缓存 → 返回旧数据（防击穿）
+```
+
+| 问题 | 解决方案 | 技术细节 |
+|------|----------|----------|
+| **缓存穿透** | 布隆过滤器 + 空值缓存 | Redisson `RBloomFilter` 拦截不存在 ID；数据库也不存在时写 `""` 短 TTL 缓存 |
+| **缓存击穿** | 逻辑过期 + 互斥锁 + 双重检查 | 热点数据设逻辑过期时间；过期后抢分布式锁，异步重建，返回旧数据保证可用性 |
+| **缓存雪崩** | TTL 随机化 | `random.nextLong(time-10, time+10)` 避免缓存同时过期 |
+
+> 核心代码：[CacheClient.queryWithAllProtection](file:///d:/zmz/project/chang_an_travel/chang_an_backend/chang_an_dianping/src/main/java/com/hmdp/utils/CacheClient.java#L56-L133)
+
+#### 4.2 秒杀系统（Redis Stream + RocketMQ 预留）
+
+```
+用户请求 → Lua 脚本原子扣库存（防超卖）→ 生成订单 ID → 发消息队列 → 异步消费建单
+```
+
+| 方案 | 当前状态 | 说明 |
+|------|----------|------|
+| **Redis Stream** | 生产环境 | 零额外部署，利用已有 Redis，`stream.orders` 消费组异步建单 |
+| **RocketMQ** | 注释预留 | 完整实现已就绪（消费者 + 本地消息表补偿 + Docker 部署），高并发时可解除注释切换 |
+
+#### 4.3 分布式锁与全局 ID
+
+| 功能 | 实现 | 场景 |
+|------|------|------|
+| **Redisson 分布式锁** | `RLock.tryLock()` | 秒杀下单防并发冲突、缓存重建互斥 |
+| **全局唯一 ID** | Snowflake 算法（`RedisIDWorker`） | 订单 ID 生成，避免数据库自增瓶颈 |
+| **布隆过滤器** | Redisson `RBloomFilter` | 商铺 ID 预加载，拦截非法查询 |
+
+#### 4.4 用户认证与会话管理
+
+```
+登录 → 生成 Token（UUID）→ 存 Redis（Hash: user:token:{token} → userId）
+       → 返回 Token 给前端
+       
+请求 → RefreshTokenInterceptor（刷新 TTL）→ LoginInterceptor（校验登录）→ Controller
+```
+
+- **双拦截器设计**：`RefreshTokenInterceptor`（order=0）每次请求刷新 Token TTL；`LoginInterceptor`（order=1）校验登录态
+- **ThreadLocal 传递**：`UserHolder` 基于 `ThreadLocal<UserDTO>` 在拦截器与业务层之间传递用户信息
+
+#### 4.5 核心业务模块
+
+| 模块 | 功能 | 技术亮点 |
+|------|------|----------|
+| **店铺查询** | 按 ID / 类型 / 坐标距离查询 | Redis GEO 距离排序 + 分页 |
+| **探店笔记** | 发布 / 点赞 / 关注推送 / 评论 | Redis BitMap 点赞、ZSet 关注推送 |
+| **优惠券** | 普通券 / 秒杀券 | Lua 脚本原子扣库存 |
+| **签到** | 连续签到统计 | Redis BitMap 按位存储 |
+| **附近店铺** | 基于 GEO 的半径搜索 | `GEOSEARCH` + `ORDER BY FIELD` 保持距离顺序 |
+
+#### 4.6 与 AI 层的集成
+
+```
+Python AI 服务 ← httpx 异步调用 ← Java REST API
+    │
+    ├─ 拉店铺/笔记/优惠券数据 → 构建 Milvus 知识库
+    ├─ Agent 工具实时查询 → Java API 获取最新数据
+    └─ 笔记 AI 辅助 → Java AiController 转发鉴权请求
+```
+
+- **Python 不直连 MySQL**：规避内网连通性风险，所有数据经 Java REST API 获取
+- **统一返回体**：`{success, errorMsg, data, total}` 前后端格式统一
+- **SSE 流式分流**：nginx 前缀最长匹配，`/api/ai/chat` 直连 Python 8000，其余走 Java 8081
 
 ---
-
-## 🗺 开发路线图
-
-> 6 周业余时间，7 个阶段，从零搭建完整 AI 应用
-
-| 阶段 | 内容 | 核心交付 | ✅ |
-|:--:|------|------|:--:|
-| 0 | 骨架搭建：conda 环境、分层目录、配置、健康检查 | `curl health` 通 | ✅ |
-| 1 | 数据管道：java_client 拉数、西安语料、embedding、入库 | Milvus 千级 chunk | ✅ |
-| 2 | RAG 问答：检索→重排→prompt→流式生成、多轮改写 | 脚本可流式问答带引用 | ✅ |
-| 3 | 前端聊天页：ai-chat.html SSE 解析、nginx 分流 | **浏览器可流式演示** | ✅ |
-| 4 | 笔记 AI 辅助：Python 三接口 + Java AiController | 发笔记可用 AI 辅助 | ✅ |
-| 5 | 探店 Agent：LangGraph 状态图、6 工具、意图路由 | 多轮 Agent 演示 | ✅ |
-| 6 | 长安数据落地：西安 SQL（18店/12笔记/20券）、全链路验证 | 全站西安化 | ✅ |
-| 7 | 测试文档：pytest 22 用例、Hit@5=100% 评估 | 检索命中率报告 | ✅ |
-
----
-
-## 📚 面试知识点
-
-> 这个项目涉及的知识点覆盖了**大模型应用开发、系统架构、数据工程**三个维度，以下是按专题整理的面试要点。
-
-<details>
-<summary><strong>🔍 RAG 专题</strong></summary>
-
-- **两条链路**：入库（chunk→embedding→向量库）与查询（改写→embedding→召回 top8→重排 top4→拼 prompt→流式生成）
-- **chunk 策略**：结构化记录一条一 chunk（原子语义单元）；md 按标题切保证语义完整；切太碎丢上下文、切太大稀释向量
-- **余弦 vs 欧氏**：语义检索用 cosine（方向而非长度），店铺距离排序是地理欧氏距离，两个场景别混
-- **防幻觉三板斧**：prompt 强制"没有就明说"、相似度阈值兜底不进 LLM、引用标注可溯源
-- **多轮指代消解**：LLM 改写 + 启发式短路（无代词跳过省一次调用）
-- **embedding 选型**：DeepSeek 无 embedding 接口；选 bge-m3 因为开源权重、OpenAI 兼容协议、免费额度；入库与查询必须同一模型（RAG 铁律）
-- **Chroma → Milvus 迁移**：repository 隔离——换库只改一个文件，业务层零改动。三个坑：VARCHAR 按字节；row_count 含软删；delete 后需显式 Strong 一致性
-</details>
-
-<details>
-<summary><strong>🤖 Agent 专题</strong></summary>
-
-- **ReAct**：Reasoning + Acting 循环（思考→选工具→执行→观察→再思考）；工程实现选 function calling（结构化 tool_calls 无需正则解析）
-- **LangGraph 状态图**：两节点（agent/tools）一条件边；messages 用 add_messages reducer 累加；max_iter 防死循环；astream_events v2 流式
-- **工具失败兜底**：捕获异常返回结构化错误文本给 LLM 换策略，不把栈抛给用户
-- **时效性分层**：券库存实时变化走 HTTP 实时查；笔记静态走入库快照
-</details>
-
-<details>
-<summary><strong>🏗 架构与工程专题</strong></summary>
-
-- **nginx 前缀最长匹配分流**：`/api/ai/chat` 命中更长前缀直连 8000，其余 `/api` 去 Java；同源无 CORS
-- **为什么 SSE 不经过 Java**：RestTemplate 基于 HttpURLConnection 整体缓冲，流式会被吞；nginx `proxy_buffering off` 逐帧透传
-- **SSE vs WebSocket**：单向推送够用就 SSE（HTTP 兼容、可被代理、自动重连）；全双工才 WebSocket
-- **Java/Python 集成 HTTP**：异构语言同步低延迟最低成本；gRPC 要 protobuf、MQ 是异步削峰，封装在 repository 层可替换
-- **统一返回体**：`{success, errorMsg, data, total}` 前端拦截器只认 success，三种语言格式统一
-- **鉴权分层**：Java 转发层做鉴权，Python 对内不设防靠网络边界
-- **FastAPI vs Flask**：ASGI 原生支持流式 + pydantic 校验 + 自动 OpenAPI
-</details>
-
-<details>
-<summary><strong>📊 数据工程专题</strong></summary>
-
-- **AI 生成种子数据三层质量保障**：prompt 约束字段规则 → 脚本校验（外键/坐标范围）→ 人工抽查
-- **坐标真实可信**：真实商圈基准经纬度 + ±0.002 随机偏移（约 200 米），保证距离排序演示真实可用
-</details>
-
-<details>
-<summary><strong>🧪 测试与评估专题</strong></summary>
-
-- **不花钱跑测试**：FakeLLM（monkeypatch 预置响应）+ FakeEmbedding（确定性 hash 向量）+ respx mock httpx
-- **检索评估指标**：Hit@5（正确出现在 top5 的比例）、MRR（平均倒数排名）
-- **实测结果**（20 组标注 QA，真实 bge-m3）：**Hit@3=100%、Hit@5=100%、MRR=0.967**（`scripts/eval_retrieval.py` 可复现）
-</details>
-
----
-
-## 📄 License
-
-MIT © 2026
-
----
-
-<p align="center">
-  <sub>Built with ❤️ for Chang'an (Xi'an) culture and travel</sub>
-</p>

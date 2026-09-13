@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * AI 辅助接口转发层（阶段 4 新增，Java 侧唯一的 AI 相关代码）
+ * AI 辅助接口转发层
  *
  * 设计要点（面试）：
  * 1. 为什么走 Java 转发而不是 nginx 直连？—— 非流式 + 语义上必须登录

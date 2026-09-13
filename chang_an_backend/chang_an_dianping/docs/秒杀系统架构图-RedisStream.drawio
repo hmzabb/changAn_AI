@@ -1,0 +1,188 @@
+<mxfile host="65bd71144e">
+    <diagram name="秒杀系统-RedisStream" id="seckill-redis-stream">
+        <mxGraphModel dx="698" dy="781" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="秒杀系统架构图 — Redis Stream 方案" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=22;fontStyle=1;fontColor=#1a1a2e;" parent="1" vertex="1">
+                    <mxGeometry x="500" y="20" width="500" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="client" value="&lt;b&gt;用户/客户端&lt;/b&gt;&lt;br&gt;点击抢购" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontStyle=1;arcSize=15;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="80" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="controller" value="&lt;b&gt;VoucherOrderController&lt;/b&gt;&lt;br&gt;POST /voucher-order/seckill/{id}&lt;br&gt;&lt;font color=&quot;#888888&quot;&gt;薄层：只做路由，不写业务&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;arcSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="190" width="240" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge_client_ctrl" value="HTTP请求" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=10;strokeColor=#6c8ebf;strokeWidth=1.5;" parent="1" source="client" target="controller" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="service" value="&lt;b&gt;VoucherOrderServiceImpl&lt;/b&gt;&lt;br&gt;seckillVoucher() 核心方法" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="320" width="240" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge_ctrl_svc" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#9673a6;strokeWidth=1.5;" parent="1" source="controller" target="service" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="step_time" value="① 时间校验&lt;br&gt;秒杀是否开始/结束" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;arcSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="400" width="110" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="step_id" value="② 生成订单ID&lt;br&gt;RedisIDWorker" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;arcSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="210" y="400" width="110" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="step_stock" value="③ 初始化库存&lt;br&gt;checkAndInitStock" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;arcSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="460" width="110" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="step_lua" value="④ 执行 seckill.lua&lt;br&gt;Redis 原子操作" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="210" y="460" width="110" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge_svc_step" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#9673a6;strokeWidth=1;" parent="1" source="service" target="step_time" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="redis_box" value="&lt;b&gt;Redis 核心&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=14;fontStyle=1;arcSize=10;dashed=1;dashPattern=8 8;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="80" width="360" height="520" as="geometry"/>
+                </mxCell>
+                <mxCell id="lua_script" value="&lt;b&gt;seckill.lua 原子脚本&lt;/b&gt;&lt;br&gt;━━━━━━━━━━━━━&lt;br&gt;① GET stockKey 判断库存&lt;br&gt;② SISMEMBER 判断重复下单&lt;br&gt;③ INCRBY -1 扣库存&lt;br&gt;④ SADD 记录用户已下单&lt;br&gt;⑤ XADD 发送订单消息到 Stream&lt;br&gt;━━━━━━━━━━━━━&lt;br&gt;返回 0=成功 | 1=库存不足 | 2=重复" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;spacingLeft=10;arcSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="455" y="100" width="330" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="redis_stock" value="&lt;b&gt;库存 Key&lt;/b&gt;&lt;br&gt;seckill:stock:{voucherId}&lt;br&gt;String(INT)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#4caf50;fontSize=10;arcSize=5;" parent="1" vertex="1">
+                    <mxGeometry x="455" y="240" width="155" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="redis_order_set" value="&lt;b&gt;已下单用户 Set&lt;/b&gt;&lt;br&gt;seckill:order:{voucherId}&lt;br&gt;Set&lt;userId&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#4caf50;fontSize=10;arcSize=5;" parent="1" vertex="1">
+                    <mxGeometry x="630" y="240" width="155" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="redis_stream" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;b style=&quot;background-color: transparent;&quot;&gt;Redis Stream 消息队列&lt;/b&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;stream.orders&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;━━━━━━━━━━━━━&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;消费者组: g1&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;消费者: c1&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;━━━━━━━━━━━━━&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• XREADGROUP 读取消息&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• XACK 确认消费&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Pending List 重试机制&lt;/span&gt;&lt;/div&gt;" style="shape=parallelogram;whiteSpace=wrap;html=1;fillColor=#e6f2ff;strokeColor=#0066cc;fontSize=10;align=center;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="450" y="310" width="335" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="redis_id_worker" value="&lt;b&gt;RedisIDWorker&lt;/b&gt;&lt;br&gt;分布式 ID 生成器&lt;br&gt;━━━━━━━━━━━━━&lt;br&gt;icr:order:{yyyyMMdd}&lt;br&gt;高32位: 时间戳&lt;br&gt;低32位: 自增序列号" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#4caf50;fontSize=10;arcSize=5;align=left;spacingLeft=8;" parent="1" vertex="1">
+                    <mxGeometry x="455" y="440" width="155" height="95" as="geometry"/>
+                </mxCell>
+                <mxCell id="redisson_lock" value="&lt;b&gt;Redisson 分布式锁&lt;/b&gt;&lt;br&gt;━━━━━━━━━━━━━&lt;br&gt;lock:order:{userId}&lt;br&gt;RLock.tryLock()&lt;br&gt;看门狗自动续期" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fce4ec;strokeColor=#e91e63;fontSize=10;arcSize=5;align=left;spacingLeft=8;" parent="1" vertex="1">
+                    <mxGeometry x="630" y="440" width="155" height="95" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge_lua_stock" value="GET" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=9;strokeColor=#d6b656;dashed=1;" parent="1" source="lua_script" target="redis_stock" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge_lua_order" value="SISMEMBER/SADD" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=9;strokeColor=#d6b656;dashed=1;" parent="1" source="lua_script" target="redis_order_set" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge_lua_stream" value="XADD" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=9;strokeColor=#d6b656;dashed=1;" parent="1" source="lua_script" target="redis_stream" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="620" y="230"/>
+                            <mxPoint x="620" y="290"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="edge_svc_lua" value="执行 Lua 脚本" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;strokeColor=#b85450;strokeWidth=2;fontColor=#b85450;fontStyle=1;" parent="1" source="step_lua" target="lua_script" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge_svc_idworker" value="生成ID" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;strokeColor=#4caf50;dashed=1;" parent="1" source="step_id" target="redis_id_worker" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="400" y="422"/>
+                            <mxPoint x="400" y="487"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="consumer_box" value="&lt;b&gt;异步消费者（后台线程）&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;fontStyle=1;arcSize=10;dashed=1;dashPattern=8 8;" parent="1" vertex="1">
+                    <mxGeometry x="880" y="80" width="300" height="520" as="geometry"/>
+                </mxCell>
+                <mxCell id="consumer_handler" value="&lt;b&gt;VoucherOrderHandler&lt;/b&gt;&lt;br&gt;单线程异步消费" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4cccc;strokeColor=#cc0000;fontSize=12;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="895" y="100" width="270" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="consumer_step1" value="① XREADGROUP 读取消息&lt;br&gt;  阻塞 2 秒等待" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff3e0;strokeColor=#ff9800;fontSize=10;arcSize=5;align=left;spacingLeft=8;" parent="1" vertex="1">
+                    <mxGeometry x="895" y="170" width="270" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="consumer_step2" value="② 解析消息为 VoucherOrder 对象" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff3e0;strokeColor=#ff9800;fontSize=10;arcSize=5;align=left;spacingLeft=8;" parent="1" vertex="1">
+                    <mxGeometry x="895" y="220" width="270" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="consumer_step3" value="③ Redisson 分布式锁（防重复下单）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fce4ec;strokeColor=#e91e63;fontSize=10;arcSize=5;align=left;spacingLeft=8;" parent="1" vertex="1">
+                    <mxGeometry x="895" y="265" width="270" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="consumer_step4" value="④ 数据库事务：扣库存 + 创建订单" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff3e0;strokeColor=#ff9800;fontSize=10;arcSize=5;align=left;spacingLeft=8;" parent="1" vertex="1">
+                    <mxGeometry x="895" y="310" width="270" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="consumer_step5" value="⑤ XACK 确认消费&lt;br&gt;   成功→从 Pending List 移除" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#4caf50;fontSize=10;arcSize=5;align=left;spacingLeft=8;" parent="1" vertex="1">
+                    <mxGeometry x="895" y="355" width="270" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="consumer_step6" value="⑥ 异常 → handlePendingList() 重试&lt;br&gt;   从 Pending List 重新消费" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffebee;strokeColor=#f44336;fontSize=10;arcSize=5;align=left;spacingLeft=8;" parent="1" vertex="1">
+                    <mxGeometry x="895" y="405" width="270" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="consumer_note" value="&lt;b&gt;可靠性保证&lt;/b&gt;&lt;br&gt;• 消息不丢：ACK 机制 + Pending List&lt;br&gt;• 异常重试：逐条重试，间隔 20ms&lt;br&gt;• 消费者组：天然负载均衡" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#2196f3;fontSize=10;arcSize=5;align=left;spacingLeft=8;" parent="1" vertex="1">
+                    <mxGeometry x="895" y="465" width="270" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge_stream_consumer" value="XREADGROUP 消费" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;strokeColor=#0066cc;strokeWidth=2;fontColor=#0066cc;fontStyle=1;" parent="1" source="redis_stream" target="consumer_handler" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge_consumer_lock" value="获取锁" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;fontSize=9;strokeColor=#e91e63;dashed=1;fontColor=#e91e63;" parent="1" source="consumer_step3" target="redisson_lock" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="860" y="283"/>
+                            <mxPoint x="860" y="488"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="mysql" value="&lt;b&gt;MySQL 数据库&lt;/b&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;fontStyle=1;size=20;" parent="1" vertex="1">
+                    <mxGeometry x="895" y="640" width="150" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="mysql_detail" value="&lt;b&gt;tb_seckill_voucher&lt;/b&gt;&lt;br&gt;voucher_id, stock, beginTime, endTime&lt;br&gt;&lt;br&gt;&lt;b&gt;tb_voucher_order&lt;/b&gt;&lt;br&gt;id, user_id, voucher_id, status, createTime&lt;br&gt;&lt;br&gt;乐观锁: &lt;font color=&quot;#d79b00&quot;&gt;gt(&quot;stock&quot;, 0)&lt;/font&gt; 防超卖" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff8e1;strokeColor=#d79b00;fontSize=10;arcSize=5;align=left;spacingLeft=8;" parent="1" vertex="1">
+                    <mxGeometry x="895" y="740" width="270" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge_consumer_mysql" value="数据库事务写入" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=10;strokeColor=#d79b00;strokeWidth=2;fontColor=#d79b00;fontStyle=1;" parent="1" source="consumer_handler" target="mysql" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1030" y="540"/>
+                            <mxPoint x="970" y="540"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="return_flow" value="&lt;b&gt;立即返回 orderId 给用户&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#4caf50&quot;&gt;异步下单，用户无感知等待&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#4caf50;fontSize=11;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="540" width="240" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge_svc_return" value="立即返回" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=10;strokeColor=#4caf50;strokeWidth=2;fontColor=#4caf50;" parent="1" source="step_lua" target="return_flow" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="265" y="520"/>
+                            <mxPoint x="200" y="520"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="legend_title" value="&lt;b&gt;图例&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;fontColor=#333333;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="640" width="60" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_sync" value="同步调用" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e8e8e8;strokeColor=#333333;fontSize=10;arcSize=5;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="680" width="90" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_async" value="异步消费" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#2196f3;fontSize=10;arcSize=5;" parent="1" vertex="1">
+                    <mxGeometry x="180" y="680" width="90" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_atomic" value="原子操作 (Lua)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;arcSize=5;" parent="1" vertex="1">
+                    <mxGeometry x="280" y="680" width="100" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_lock" value="分布式锁" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fce4ec;strokeColor=#e91e63;fontSize=10;arcSize=5;" parent="1" vertex="1">
+                    <mxGeometry x="390" y="680" width="80" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_db" value="数据库写入" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff8e1;strokeColor=#d79b00;fontSize=10;arcSize=5;" parent="1" vertex="1">
+                    <mxGeometry x="480" y="680" width="80" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="flow_desc" value="&lt;b&gt;核心流程说明&lt;/b&gt;&lt;br&gt;&lt;br&gt;① 用户发起秒杀请求 → Controller 路由 → Service&lt;br&gt;② 时间校验 → 生成分布式订单ID → 初始化Redis库存&lt;br&gt;③ 执行 &lt;font color=&quot;#d6b656&quot;&gt;seckill.lua&lt;/font&gt; 原子操作（判断库存、防重复、扣库存、发消息）&lt;br&gt;④ Lua 脚本通过 &lt;font color=&quot;#0066cc&quot;&gt;XADD&lt;/font&gt; 将订单消息写入 Redis Stream&lt;br&gt;⑤ &lt;font color=&quot;#4caf50&quot;&gt;立即返回&lt;/font&gt; orderId 给用户（异步下单）&lt;br&gt;⑥ &lt;font color=&quot;#cc0000&quot;&gt;VoucherOrderHandler&lt;/font&gt; 后台线程从 Stream 消费消息&lt;br&gt;⑦ 获取 &lt;font color=&quot;#e91e63&quot;&gt;Redisson 分布式锁&lt;/font&gt; → 数据库事务写入&lt;br&gt;⑧ &lt;font color=&quot;#0066cc&quot;&gt;XACK&lt;/font&gt; 确认消费；异常进入 &lt;font color=&quot;#f44336&quot;&gt;Pending List&lt;/font&gt; 重试&lt;br&gt;⑨ 数据库层 &lt;font color=&quot;#d79b00&quot;&gt;乐观锁 gt(&quot;stock&quot;, 0)&lt;/font&gt; 作为最后一道防线" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f9f9f9;strokeColor=#999999;fontSize=10;arcSize=5;align=left;spacingLeft=10;verticalAlign=top;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="740" width="500" height="150" as="geometry"/>
+                </mxCell>
+                <mxCell id="defense_title" value="&lt;b&gt;四道防线（纵深防御）&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;fontColor=#c62828;" parent="1" vertex="1">
+                    <mxGeometry x="600" y="640" width="200" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="defense1" value="&lt;b&gt;第一道&lt;/b&gt;：Lua 原子操作&lt;br&gt;防超卖" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffcdd2;strokeColor=#e57373;fontSize=10;arcSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="600" y="680" width="130" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="defense2" value="&lt;b&gt;第二道&lt;/b&gt;：Redisson 锁&lt;br&gt;防重复下单" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffcdd2;strokeColor=#e57373;fontSize=10;arcSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="740" y="680" width="130" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="defense3" value="&lt;b&gt;第三道&lt;/b&gt;：数据库乐观锁&lt;br&gt;防极端超卖" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffcdd2;strokeColor=#e57373;fontSize=10;arcSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="600" y="740" width="130" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="defense4" value="&lt;b&gt;第四道&lt;/b&gt;：数据库唯一约束&lt;br&gt;防重复下单" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffcdd2;strokeColor=#e57373;fontSize=10;arcSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="740" y="740" width="130" height="45" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

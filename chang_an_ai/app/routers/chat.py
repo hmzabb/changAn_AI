@@ -1,8 +1,8 @@
 """聊天接口：POST /api/ai/chat —— SSE 流式（nginx 直连分流）。
 
 mode 三种取值：
-- rag：RAG 直答（阶段 2 链路）；
-- agent：LangGraph Agent（阶段 5，工具调用 + 流式）；
+- rag：RAG 直答；
+- agent：LangGraph Agent；
 - auto（默认）：启发式意图路由——含任务型关键词（找店/券/人均等）走 Agent，
   否则走 RAG。这是零成本基线；LLM 意图分类是可选升级（多一次调用换准确率）。
 
@@ -57,7 +57,7 @@ def _route(req: ChatRequest) -> str:
 
 
 def _rag_frames(req: ChatRequest, history: list[dict]):
-    """RAG 模式（同步生成器）：沿用阶段 2 的 answer() 编排，转为 SSE 帧。"""
+    """RAG 模式（同步生成器）"""
     collected: list[str] = []
     try:
         for event, payload in answer(req.message, history):

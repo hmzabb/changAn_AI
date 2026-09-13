@@ -19,7 +19,6 @@ from app.services.embedding import get_embedding_client
 CORPUS_DIR = BASE_DIR / "app" / "data" / "corpus"
 EMBED_BATCH_SIZE = 16  # 每批 16 条调一次 embedding API：省调用次数与费用（接口支持批量输入）
 
-
 def load_corpus_chunks(corpus_dir: Path | None = None) -> list[Chunk]:
     """读 corpus/**/*.md → Chunk（source=corpus）。文件名（去扩展名）即文档标题。"""
     chunks: list[Chunk] = []
@@ -85,7 +84,6 @@ def load_java_chunks() -> list[Chunk]:
 
 def run_ingest(sources: list[str] | None = None, progress=None) -> dict:
     """重建知识库。sources: ["corpus","java"]（默认全部）；progress(msg) 可选进度回调(实时报告进度)。
-
     返回 {"sources": {源: chunk数}, "errors": [...], "embedding": 模型名}。
     """
     sources = sources or ["corpus", "java"]

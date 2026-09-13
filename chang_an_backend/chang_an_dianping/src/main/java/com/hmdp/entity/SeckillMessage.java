@@ -10,11 +10,9 @@ import lombok.experimental.Accessors;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
-//******** RocketMQ 本地消息表实体（已注释，如需切换回 RocketMQ 请取消注释）********
-/*
 @Data
 @EqualsAndHashCode(callSuper = false)
-@Accessors(chain = true)
+@Accessors(chain = true)//开启链式调用
 @TableName("tb_seckill_message")
 public class SeckillMessage implements Serializable {
 
@@ -32,7 +30,7 @@ public class SeckillMessage implements Serializable {
     /**
      * 0=待发送 1=已发送 2=发送失败
      */
-    /*
+
     private Integer status;
 
     private Integer retryCount;
@@ -43,4 +41,3 @@ public class SeckillMessage implements Serializable {
 
     private LocalDateTime updateTime;
 }
-*/

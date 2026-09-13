@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     embedding_model: str = "BAAI/bge-m3"
 
     # ---- 重排（硅基流动 bge-reranker-v2-m3，免费 API）----
-    rerank_enabled: bool = False
+    rerank_enabled: bool = True
     rerank_model: str = "BAAI/bge-reranker-v2-m3"
 
     # ---- Java 后端（数据源，Python 不直连 MySQL）----
@@ -41,6 +41,11 @@ class Settings(BaseSettings):
 
     # ---- Milvus 向量库（Docker standalone，gRPC 19530 / HTTP 9091）----
     milvus_uri: str = "http://127.0.0.1:19530"
+
+    # ---- Redis（Java 端已有 127.0.0.1:6379，复用即可）----
+    redis_url: str = "redis://127.0.0.1:6379/0"
+    redis_password: str = ""
+    redis_session_ttl_seconds: int = 1800  # 30分钟自动过期
 
     # ---- 服务 ----
     app_host: str = "127.0.0.1"
