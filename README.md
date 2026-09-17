@@ -7,6 +7,8 @@
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/status-🧪_学习项目-orange?style=flat-square" alt="学习项目"/>
+  <img src="https://img.shields.io/badge/stage-未上线-yellow?style=flat-square" alt="未上线"/>
   <img src="https://img.shields.io/badge/Java-17-brightgreen?style=flat-square&logo=java" alt="Java 17"/>
   <img src="https://img.shields.io/badge/Spring_Boot-2.7.18-brightgreen?style=flat-square&logo=springboot" alt="Spring Boot"/>
   <img src="https://img.shields.io/badge/Python-3.11-blue?style=flat-square&logo=python" alt="Python 3.11"/>
@@ -16,6 +18,10 @@
   <img src="https://img.shields.io/badge/DeepSeek-V4_Flash-4B6BFB?style=flat-square" alt="DeepSeek"/>
   <img src="https://img.shields.io/badge/nginx-1.18-009639?style=flat-square&logo=nginx" alt="nginx"/>
 </p>
+
+> **💡 项目说明**：本项目为个人学习项目，用于技术探索和实习面试准备，**尚未部署至生产环境**。<br>
+> ✅ 已完成：单元测试覆盖、延迟分解分析、JMeter压测方案设计<br>
+> ⏳ 待完成：云服务器部署、完整压测验证、监控体系搭建
 
 ---
 
@@ -52,7 +58,6 @@
 | 🔍 **RAG 智能问答** | 西安文旅知识库 + 平台实时数据为语料，流式回答带引用来源，一键跳转详情页 | 「西安三日游怎么安排？」 |
 | 🤖 **探店 Agent** | 多轮对话中自主调用 6 个工具，完成复合任务 | 「钟楼附近人均 80 以下的美食店，有没有优惠券？」 |
 | ✍️ **笔记 AI 辅助** | 一键生成候选标题、按风格润色正文、情感分析自检 + 评论区舆情监控 | 文艺 / 幽默 / 朴实三种风格随心切换 |
-| 🎯 **Hit@5=100%** | bge-m3 向量 + jieba 关键词 + MMR 重排的混合检索，20 组标注 QA 实测 MRR=0.967 | — |
 
 ---
 
