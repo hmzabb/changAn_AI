@@ -1,6 +1,5 @@
 """Milvus 向量库封装（repository 层）。
 
-面试考点（本次真实迁移的教训）：
 - 三个真实踩坑：
   1) VARCHAR max_length 按字节算（中文 UTF-8 每字 3 字节），text 给 16384 字节；
   2) get_collection_stats 的 row_count 含软删除行，delete 后不减少——count 必须用
@@ -48,7 +47,6 @@ class VectorStore:
         存在但 schema 不兼容则重建；Milvus 服务重启后 collection 不会自动
         load，这里补一次 load。
 
-        面试点：这里如果 Milvus 内部段文件损坏导致 Loading 卡死，不阻塞启动——
         通过超时 + 优雅降级保证服务可用性，损坏的段不影响其他已加载段的查询。
         """
         from pymilvus import DataType, MilvusClient

@@ -1,6 +1,5 @@
 """Java 后端数据拉取封装（repository 层）。
 
-设计要点（面试）：
 - Python 不直连 MySQL，所有数据经 Java REST 获取——Python 是"Java 之上的智能层"。
 - 本层是项目里唯一允许出现 httpx 调用的地方：上层服务只看到"拉店铺/拉笔记"，
   将来换协议（如 gRPC）只需改这一个文件。
@@ -32,7 +31,7 @@ class JavaClient:
     MAX_RETRIES = 2  # 网络异常最多重试 2 次（共 3 次尝试）
 
     def __init__(self, base_url: str | None = None, timeout: float | None = None):
-        # httpx.Client 连接池复用：分页循环几十次请求只握手一次（面试点：连接复用）
+        # httpx.Client 连接池复用：分页循环几十次请求只握手一次（连接复用）
         self._client = httpx.Client(
             base_url=(base_url or settings.java_base_url).rstrip("/"),
             timeout=timeout or settings.java_timeout_seconds,

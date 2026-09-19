@@ -42,7 +42,6 @@ def chat_sync(messages: list[dict], temperature: float = 0.7, max_tokens: int | 
 def chat_stream(messages: list[dict], temperature: float = 0.7, timeout: float = 60.0) -> Iterator[str]:
     """流式对话：逐段 yield 文本增量（SSE 打字机效果的数据源）。
 
-    面试点：为什么流式？DeepSeek 生成 200 字要一段时间，流式输出可以让用户拥有更好的体验；
     stream=True 返回迭代器，每 chunk 取 delta.content 逐段下发。
     timeout 默认 60s：长回答可能需要较久，但超过 60s 说明异常，不应无限等。
     """

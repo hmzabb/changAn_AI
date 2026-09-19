@@ -1,6 +1,5 @@
 """会话存储：Redis 持久化，支持多实例共享、重启不丢失。
 
-面试点（三层设计）：
 - 连接池：全局 ConnectionPool 复用连接，避免每次读写都建连/拆连；
 - Pipeline：get → 修改 → set 是非原子的，但本项目消息量小（6 条），
   用 pipeline 打包 set + expire + ltrim 即可，无需 Lua 脚本；

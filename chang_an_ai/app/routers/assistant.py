@@ -1,6 +1,5 @@
 """笔记 AI 辅助接口（非流式 → 走 Java 转发，鉴权在 Java 层）。
 
-统一返回体（面试必考）：三个接口全部返回 Result 信封
 {success, errorMsg, data, total}——与 Java Result 完全一致，
 Java AiController 原样透传、前端拦截器只认 success 字段，三层零适配。
 LLM 异常返回 success=false 信封而非 500：对用户是"服务暂不可用"，

@@ -1,9 +1,4 @@
-"""RAG 问答编排：改写 → 检索 → 重排 → 阈值判断 → 拼 prompt → 流式生成。
-
-面试必背的查询链路：query rewrite → embedding → 召回 top8 → 重排 top4 →
-拼 prompt → LLM 流式生成，句末 [1][2] 引用标注。
-（入库链路见 ingest_service.py，两条链路一起背。）
-"""
+"""RAG 问答编排：改写 → 检索 → 重排 → 阈值判断 → 拼 prompt → 流式生成。"""
 from __future__ import annotations
 
 from app.config import settings

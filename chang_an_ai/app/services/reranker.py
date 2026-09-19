@@ -1,14 +1,4 @@
 """检索重排：召回 top8 → 重排 top4。
-
-为什么需要重排（面试必考）：向量相似度只是"语义相关性"的粗略近似，对
-"回民街有哪些好吃的泡馍店"这类问题，embedding 召回的前 8 条可能被同一篇
-文章的多个小节占满（互相重复），或漏掉高精度匹配项。重排用规则信号
-（关键词重叠/商圈命中）+ MMR 去重，把最该进 prompt 的 4 条挑出来——
-prompt 上下文预算有限（rag_max_context_chars），喂给 LLM 的每条都必须值得。
-
-API 版重排增强：SiliconFlow 的 bge-reranker-v2-m3（免费 API），把 (query, 每个候选文本)
-成对送入交叉编码器，输出精确相关性分数，通常能再提升召回质量 5-10 个点。
-网络异常时自动降级回规则重排（面试点：优雅降级）。
 """
 from __future__ import annotations
 
@@ -38,7 +28,6 @@ def _tokens(text: str) -> set[str]:
 class SiliconflowRerankerClient:
     """硅基流动重排 API 客户端（交叉编码器 bge-reranker-v2-m3）。
 
-    面试点：为什么不用 openai SDK？openai SDK 的 rerank 接口目前还在 beta
     阶段且不同厂商的 rerank 请求/响应格式不统一，直接用 httpx 更可控。
     SiliconFlow 的 /v1/rerank 接口与 Jina AI 的 rerank API 协议兼容。
 
@@ -187,7 +176,6 @@ def _api_rerank(query: str, hits: list[dict], top_k: int) -> list[dict]:
     2. 调用 SiliconFlow /v1/rerank 获取交叉编码器精确相关性分数
     3. 用 API 返回的 relevance_score 替换原始向量相似度，再走 MMR 去重
 
-    面试点：为什么 API 分数之后还要 MMR？
     交叉编码器衡量的是 (query, doc) 的语义相关性，不关心文档之间的重复度。
     如果召回的前 8 条有 4 条来自同一篇文章的不同小节，API 会给它们都打高分，
     MMR 负责剔除冗余，确保喂给 LLM 的每条上下文都是差异化的。
@@ -231,7 +219,6 @@ def rerank(query: str, hits: list[dict], top_k: int = 4) -> list[dict]:
     Returns:
         重排 + 去重后的 top_k 条 hit
 
-    面试点-优雅降级：
     settings.rerank_enabled=True 时优先走 API 交叉编码器，网络异常
     （httpx.HTTPError）/JSON 解析失败（ValueError）/响应字段缺失（KeyError）
     时自动回退到规则重排，保证用户请求不中断。这是生产环境的标准实践：

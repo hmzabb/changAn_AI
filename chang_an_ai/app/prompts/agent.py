@@ -1,6 +1,5 @@
 """探店 Agent 系统提示词。
 
-设计要点（面试必考）：
 - ReAct 是思想、function calling 是工程实现：DeepSeek 原生支持 tools 参数，
   结构化 tool_calls 无需手写正则解析 Thought/Action；但 system prompt 里
   仍保留"先分析、再调用、失败换工具"的思维链要求——两者不冲突。

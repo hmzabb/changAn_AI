@@ -1,6 +1,5 @@
 """LangGraph Agent 构建：create_react_agent 单例。
 
-面试点：
 - 状态机结构：START → agent(LLM+bind_tools) → 条件边（有 tool_calls 吗？）
   → tools(ToolNode) ⇄ agent → END，由 create_agent 预构建好；
   messages 用 add_messages reducer 累加，天然支持多轮工具调用；
