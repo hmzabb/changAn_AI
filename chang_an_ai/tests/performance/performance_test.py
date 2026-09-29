@@ -181,7 +181,7 @@ class ToolPerformanceTester:
         duration = (time.time() - start_time) * 1000
 
         # 获取缓存统计
-        from app.agent.tools import CachedToolsWrapper
+        from app.agent.cache import CachedToolsWrapper
         wrapper = CachedToolsWrapper(tools)
         stats = wrapper.get_all_cache_stats().get(tool_name, {})
 
@@ -306,7 +306,8 @@ async def main():
 
     try:
         # 导入工具
-        from app.agent.tools import ALL_TOOLS, CachedToolsWrapper
+        from app.agent.tools import ALL_TOOLS
+        from app.agent.cache import CachedToolsWrapper
         from app.agent.parallel_tools import ParallelToolNode
 
         # 创建带缓存的工具
