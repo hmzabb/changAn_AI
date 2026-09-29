@@ -21,7 +21,8 @@ def test_long_section_split_with_overlap():
     chunks = chunk_markdown(md, doc_title="t", file_name="t.md")
     assert len(chunks) >= 2  # 超长必须切块
     # Chunk 是 dataclass：text 属性而非字典键
-    assert all(len(c.text) <= 750 for c in chunks)  # 块长有界（句子粒度 + overlap 余量）
+    # OVERLAP=120, CHUNK_MAX=600, 所以最大块长 ≤ 600+120=720
+    assert all(len(c.text) <= 720 for c in chunks)  # 块长有界（句子粒度 + overlap 余量）
 
 
 def test_shop_to_text_fields():

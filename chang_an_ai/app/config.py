@@ -47,6 +47,11 @@ class Settings(BaseSettings):
     redis_password: str = ""
     redis_session_ttl_seconds: int = 1800  # 30分钟自动过期
 
+    # ---- 记忆管理（摘要记忆）----
+    summary_enabled: bool = True  # 是否启用摘要记忆
+    summary_max_rounds: int = 3  # 超过这个轮数就触发摘要（与MAX_ROUNDS一致）
+    summary_model_temperature: float = 0.1  # 摘要用低温度（更确定性）
+
     # ---- 服务 ----
     app_host: str = "127.0.0.1"
     app_port: int = 8000
