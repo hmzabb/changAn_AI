@@ -74,8 +74,6 @@ graph LR
 - 
 > 💡 **关键理解**：监控记录是**同步但非阻塞**的（<0.01ms），与路由决策**同时完成**，不会延迟主流程。
 
-> 📖 [查看完整架构设计 →](docs/ARCHITECTURE.md)
-
 ---
 
 ## 🛠 技术栈
@@ -238,7 +236,6 @@ open http://localhost:8080
 
 **技术实现**：`ParallelToolNode` 继承 ToolNode，使用 `asyncio.gather` 并发执行
 
-> 📖 [查看 Agent 详细实现 →](docs/AGENT_DEEP_DIVE.md)
 
 ### 4️⃣ 笔记 AI 辅助
 
@@ -295,7 +292,7 @@ curl http://localhost:8000/api/ai/routing/stats  # 查看实时统计
 
 > **⭐ 重要转折**: 2026-10-02，我们做出了一个**反直觉但正确**的决定：**从V6.0三层ML路由回退到简化版关键词路由**。
 >
-> 📝 **决策依据**: C端产品优先考虑"快、稳、简"，而非"完美准确率"。详见 [DEPRECATED_FILES.md](DEPRECATED_FILES.md)。
+> 📝 **决策依据**: C端产品优先考虑"快、稳、简"，而非"完美准确率"。
 
 ```mermaid
 timeline
