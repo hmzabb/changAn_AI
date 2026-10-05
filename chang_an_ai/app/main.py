@@ -2,12 +2,14 @@
 
 - ASGI 应用：原生支持 SSE 流式响应（本项目聊天接口的刚需），Flask(WSGI) 做不到这么直接。
 - lifespan：启动钩子，向量库懒加载挂在这里（阶段 1 实现），不阻塞启动；Milvus 是独立服务，与离线 ingest 脚本并行也不冲突。
+- Prometheus：自动采集 HTTP 指标（QPS/P99延迟/错误率），暴露 /metrics 端点供 Prometheus 抓取。
 """
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.routers import admin, assistant, chat, health
@@ -20,6 +22,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="长安文旅探店助手 AI 服务", version="0.1.0", lifespan=lifespan)
+
+# Prometheus 指标采集：自动暴露 /metrics，覆盖 QPS/P50/P90/P99/错误率/请求大小
+Instrumentator().instrument(app).expose(app)
 
 app.include_router(health.router)
 app.include_router(chat.router)

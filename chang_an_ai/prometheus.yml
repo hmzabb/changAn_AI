@@ -1,0 +1,15 @@
+# Prometheus 配置 - 长安文旅AI服务监控
+# 用法: docker compose up -d
+
+global:
+  scrape_interval: 15s       # 采集间隔
+  evaluation_interval: 15s   # 告警评估间隔
+
+scrape_configs:
+  - job_name: "chang_an_ai"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["host.docker.internal:8000"]
+        labels:
+          app: "chang_an_ai"
+          env: "dev"

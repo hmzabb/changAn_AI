@@ -35,3 +35,6 @@ respx>=0.22.0
 
 # 缓存
 redis>=5.0.0
+
+# 监控（Prometheus 指标暴露）
+prometheus-fastapi-instrumentator>=7.0.0

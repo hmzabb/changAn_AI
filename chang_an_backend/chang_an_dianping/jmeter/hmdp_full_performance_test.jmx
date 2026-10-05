@@ -1,42 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
   <hashTree>
-    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="长安点评(hmdp)-缓存三大问题+秒杀系统完整压测方案" enabled="true">
-      <stringProp name="TestPlan.comments">
-===========================================================
-测试环境：长安点评电商系统 (chang-an-dianping)
-测试数据来源：真实数据库 (2026-10-03)
-
-📦 秒杀优惠券清单（tb_seckill_voucher）:
-  ├─ voucher_id=1  | 50元代金券  | 库存:100  | 商铺ID:1  | ⭐ 主测对象
-  ├─ voucher_id=3  | 40元代金券  | 库存:80   | 商铺ID:2
-  ├─ voucher_id=4  | 100元代金券 | 库存:50   | 商铺ID:3
-  ├─ voucher_id=5  | 20元代金券  | 库存:200  | 商铺ID:4  | 📈 高库存测试
-  ├─ voucher_id=9  | 精酿套餐    | 库存:60   | 商铺ID:9
-  └─ voucher_id=16 | SPA项目     | 库存:120  | 商铺ID:15
-
-🏪 商铺数据（tb_shop）:
-  └─ 共有15+家商铺（ID: 1-15），用于缓存穿透/击穿/雪崩测试
-
-🎯 测试场景（5个）:
-  01. 缓存命中基准测试      - 验证正常情况下的QPS和响应时间
-  02. 缓存穿透防护测试      - 验证布隆过滤器拦截不存在的商铺ID
-  03. 缓存击穿防护测试      - 验证热点Key过期时的分布式锁方案
-  04. 缓存雪崩防护测试      - 验证TTL随机化防止批量Key同时过期
-  05. 秒杀系统压力测试      - 验证Lua脚本+Redis Stream的库存一致性
-
-⚡ 执行前必读:
-  1. 确保Spring Boot应用已启动（端口8081）
-  2. 确保Redis和MySQL服务正常运行
-  3. 建议先执行场景01建立基线，再逐步增加压力
-  4. 场景03需手动触发热点Key过期（详见场景说明）
-  5. 场景05会消耗真实库存，建议在测试环境执行
-===========================================================
-      </stringProp>
-      <boolProp name="TestPlan.functional_mode">false</boolProp>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Test Plan">
       <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>
-      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
-      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="用户定义的变量" enabled="true">
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
         <collectionProp name="Arguments.arguments">
           <elementProp name="HOST" elementType="Argument">
             <stringProp name="Argument.name">HOST</stringProp>
@@ -48,172 +15,42 @@
             <stringProp name="Argument.value">8081</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
-          <elementProp name="PROTOCOL" elementType="Argument">
-            <stringProp name="Argument.name">PROTOCOL</stringProp>
-            <stringProp name="Argument.value">http</stringProp>
-            <stringProp name="Argument.metadata">=</stringProp>
-          </elementProp>
           <elementProp name="TEST_TOKEN" elementType="Argument">
             <stringProp name="Argument.name">TEST_TOKEN</stringProp>
             <stringProp name="Argument.value">test_token_123456</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
-          <elementProp name="MAIN_VOUCHER_ID" elementType="Argument">
-            <stringProp name="Argument.name">MAIN_VOUCHER_ID</stringProp>
-            <stringProp name="Argument.value">1</stringProp>
-            <stringProp name="Argument.metadata">=</stringProp>
-            <stringProp name="Argument.comments">主测秒杀券ID（50元代金券，库存100）</stringProp>
-          </elementProp>
-          <elementProp name="HIGH_STOCK_VOUCHER_ID" elementType="Argument">
-            <stringProp name="Argument.name">HIGH_STOCK_VOUCHER_ID</stringProp>
-            <stringProp name="Argument.value">5</stringProp>
-            <stringProp name="Argument.metadata">=</stringProp>
-            <stringProp name="Argument.comments">高库存秒杀券ID（20元代金券，库存200）</stringProp>
-          </elementProp>
         </collectionProp>
       </elementProp>
-      <stringProp name="TestPlan.user_define_classpath"></stringProp>
     </TestPlan>
     <hashTree>
-
-      <!-- ==================== 全局配置 ==================== -->
-      <CookieManager guiclass="CookiePanel" testclass="CookieManager" testname="HTTP Cookie管理器" enabled="true">
-        <collectionProp name="CookieManager.cookies"/>
-        <boolProp name="CookieManager.clearEachIteration">true</boolProp>
-      </CookieManager>
-      <hashTree/>
-
-      <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="全局HTTP头" enabled="true">
-        <collectionProp name="HeaderManager.headers">
-          <elementProp name="" elementType="Header">
-            <stringProp name="Header.name">Content-Type</stringProp>
-            <stringProp name="Header.value">application/json</stringProp>
-          </elementProp>
-          <elementProp name="" elementType="Header">
-            <stringProp name="Header.name">Accept</stringProp>
-            <stringProp name="Header.value">application/json</stringProp>
-          </elementProp>
-        </collectionProp>
-      </HeaderManager>
-      <hashTree/>
-
-      <!-- ==================== 场景1: 缓存命中测试（基准测试） ==================== -->
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="01_缓存命中测试_基准性能(1000线程)" enabled="true">
-        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
-        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="循环控制器" enabled="true">
-          <boolProp name="LoopController.continue_forever">false</boolProp>
-          <stringProp name="LoopController.loops">100</stringProp>
-        </elementProp>
-        <stringProp name="ThreadGroup.num_threads">1000</stringProp>
-        <stringProp name="ThreadGroup.ramp_time">10</stringProp>
-        <boolProp name="ThreadGroup.scheduler">false</boolProp>
-        <stringProp name="ThreadGroup.duration"></stringProp>
-        <stringProp name="ThreadGroup.delay"></stringProp>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="01_Cache_Hit_1000Threads">
+        <intProp name="ThreadGroup.num_threads">1000</intProp>
+        <intProp name="ThreadGroup.ramp_time">10</intProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
-        <stringProp name="ThreadGroup.comments">
-📊 场景说明：验证缓存命中时的系统性能
-🎯 测试目标：商铺ID 1-15（数据库中真实存在的15家商铺）
-📈 预期指标：
-   - QPS ≥ 20,000（缓存命中应该非常快）
-   - P99 < 20ms（Redis读取通常<1ms）
-   - 成功率 100%
-   - 数据库QPS ≈ 0（所有请求应该命中缓存）
-💡 用途：作为其他场景的对比基准线
-        </stringProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <stringProp name="LoopController.loops">100</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
       </ThreadGroup>
       <hashTree>
-
-        <!-- 思考时间：模拟真实用户浏览间隔（高斯分布更真实） -->
-        <GaussianRandomTimer guiclass="GaussianRandomTimerGui" testclass="GaussianRandomTimer" testname="用户思考时间(高斯分布)" enabled="true">
-          <stringProp name="ConstantTimer.delay">100</stringProp>
-          <stringProp name="RandomTimer.range">50</stringProp>
-        </GaussianRandomTimer>
-        <hashTree/>
-
-        <!-- 随机选择存在的店铺ID (1-15，匹配你的真实数据) -->
-        <CounterConfig guiclass="CounterConfigGui" testclass="CounterConfig" testname="店铺ID计数器(1-15)" enabled="true">
-          <stringProp name="CounterConfig.start">1</stringProp>
-          <stringProp name="CounterConfig.end">15</stringProp>
-          <stringProp name="CounterConfig.incr">1</stringProp>
-          <stringProp name="CounterConfig.name">shopId</stringProp>
-          <stringProp name="CounterConfig.format"></stringProp>
-          <boolProp name="CounterConfig.per_user">true</boolProp>
-        </CounterConfig>
-        <hashTree/>
-
-        <!-- HTTP请求：查询商铺详情 -->
-        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET_查询商铺详情(缓存命中)" enabled="true">
-          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="用户定义的变量" enabled="true">
-            <collectionProp name="Arguments.arguments"/>
-          </elementProp>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET_Shop_CacheHit">
           <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
           <stringProp name="HTTPSampler.port">${PORT}</stringProp>
-          <stringProp name="HTTPSampler.protocol">${PROTOCOL}</stringProp>
-          <stringProp name="HTTPSampler.contentEncoding">UTF-8</stringProp>
-          <stringProp name="HTTPSampler.path">/shop/${shopId}</stringProp>
-          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.contentEncoding">utf-8</stringProp>
+          <stringProp name="HTTPSampler.path">/shop/1</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
-          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
           <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
-          <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
-          <boolProp name="HTTPSampler.BROWSER_COMPATIBLE_MULTIPART">false</boolProp>
-          <boolProp name="HTTPSampler.image_parser">true</boolProp>
-          <stringProp name="HTTPSampler.embedded_url_replacements"></stringProp>
-          <stringProp name="HTTPSampler.connect_timeout">5000</stringProp>
-          <stringProp name="HTTPSampler.response_timeout">5000</stringProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
         </HTTPSamplerProxy>
-        <hashTree>
-
-          <!-- HTTP Header：携带认证Token -->
-          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="认证头" enabled="true">
-            <collectionProp name="HeaderManager.headers">
-              <elementProp name="" elementType="Header">
-                <stringProp name="Header.name">Authorization</stringProp>
-                <stringProp name="Header.value">${TEST_TOKEN}</stringProp>
-              </elementProp>
-            </collectionProp>
-          </HeaderManager>
-          <hashTree/>
-
-          <!-- 响应断言1：验证HTTP状态码200 -->
-          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="断言_HTTP状态码200" enabled="true">
-            <collectionProp name="Asserion.test_strings">
-              <stringProp name="49586">200</stringProp>
-            </collectionProp>
-            <stringProp name="Assertion.custom_message">❌ HTTP状态码非200，请求失败</stringProp>
-            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
-            <boolProp name="Assertion.assume_success">false</boolProp>
-            <intProp name="Assertion.test_type">8</intProp>
-          </ResponseAssertion>
-          <hashTree/>
-
-          <!-- 响应断言2：验证业务成功 -->
-          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="断言_业务返回成功" enabled="true">
-            <collectionProp name="Asserion.test_strings">
-              <stringProp name="-497869150">&quot;success&quot;:true</stringProp>
-            </collectionProp>
-            <stringProp name="Assertion.custom_message">❌ 接口业务逻辑返回失败</stringProp>
-            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
-            <boolProp name="Assertion.assume_success">false</boolProp>
-            <intProp name="Assertion.test_type">16</intProp>
-          </ResponseAssertion>
-          <hashTree/>
-
-          <!-- 响应断言3：验证包含商铺ID（确保返回正确数据） -->
-          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="断言_返回正确的商铺ID" enabled="true">
-            <collectionProp name="Asserion.test_strings">
-              <stringProp name="49586">&quot;id&quot;:${shopId}</stringProp>
-            </collectionProp>
-            <stringProp name="Assertion.custom_message">❌ 返回的商铺ID与请求不匹配，数据错误</stringProp>
-            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
-            <boolProp name="Assertion.assume_success">false</boolProp>
-            <intProp name="Assertion.test_type">16</intProp>
-          </ResponseAssertion>
-          <hashTree/>
-        </hashTree>
-
-        <!-- 统计结果收集器 -->
-        <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="统计报告-缓存命中" enabled="true">
+        <hashTree/>
+        <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="Summary Report">
           <boolProp name="ResultCollector.error_logging">false</boolProp>
           <objProp>
             <name>saveConfig</name>
@@ -229,285 +66,53 @@
               <dataType>true</dataType>
               <encoding>false</encoding>
               <assertions>true</assertions>
-              <subresults>true</subresults>
+              <subresults>false</subresults>
               <responseData>false</responseData>
               <samplerData>false</samplerData>
               <xml>false</xml>
-              <fieldNames>true</fieldNames>
+              <fieldNames>false</fieldNames>
               <responseHeaders>false</responseHeaders>
               <requestHeaders>false</requestHeaders>
               <responseDataOnError>false</responseDataOnError>
-              <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+              <saveAssertionResultsFailureMessage>false</saveAssertionResultsFailureMessage>
               <assertionsResultsToSave>0</assertionsResultsToSave>
               <bytes>true</bytes>
               <sentBytes>true</sentBytes>
               <url>true</url>
               <threadCounts>true</threadCounts>
-              <idleTime>true</idleTime>
-              <connectTime>true</connectTime>
             </value>
           </objProp>
-          <stringProp name="filename">jmeter/results/01_cache_hit_report.csv</stringProp>
+          <stringProp name="filename">result_01.csv</stringProp>
         </ResultCollector>
         <hashTree/>
       </hashTree>
-
-      <!-- ==================== 场景2: 缓存穿透测试 ==================== -->
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="02_缓存穿透测试_布隆过滤器防护(500线程)" enabled="true">
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="02_Cache_Penetration_500Threads">
+        <intProp name="ThreadGroup.num_threads">500</intProp>
+        <intProp name="ThreadGroup.ramp_time">5</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
-        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="循环控制器" enabled="true">
-          <boolProp name="LoopController.continue_forever">false</boolProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
           <stringProp name="LoopController.loops">200</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
         </elementProp>
-        <stringProp name="ThreadGroup.num_threads">500</stringProp>
-        <stringProp name="ThreadGroup.ramp_time">5</stringProp>
-        <boolProp name="ThreadGroup.scheduler">false</boolProp>
-        <stringProp name="ThreadGroup.duration"></stringProp>
-        <stringProp name="ThreadGroup.delay"></stringProp>
-        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
-        <stringProp name="ThreadGroup.comments">
-📊 场景说明：模拟恶意攻击，大量请求不存在的商铺ID
-🎯 测试目标：商铺ID 99999-199999（数据库中肯定不存在）
-🛡️ 防护机制：BloomFilterInitializer初始化的布隆过滤器
-📈 预期指标：
-   - QPS ≥ 50,000（布隆过滤器判断极快，O(k)复杂度）
-   - P99 < 10ms（内存计算，无IO操作）
-   - 数据库查询次数 = 0（完全拦截，零穿透）
-   - 拦截率 = 100%
-💡 验证方法：观察MySQL慢查询日志，应无任何SELECT tb_shop记录
-        </stringProp>
       </ThreadGroup>
       <hashTree>
-
-        <!-- 生成大量不存在的店铺ID (99999-199999，远超现有15个) -->
-        <CounterConfig guiclass="CounterConfigGui" testclass="CounterConfig" testname="不存在ID计数器(99999-199999)" enabled="true">
-          <stringProp name="CounterConfig.start">99999</stringProp>
-          <stringProp name="CounterConfig.end">199999</stringProp>
-          <stringProp name="CounterConfig.incr">1</stringProp>
-          <stringProp name="CounterConfig.name">nonExistShopId</stringProp>
-          <stringProp name="CounterConfig.format"></stringProp>
-          <boolProp name="CounterConfig.per_user">true</boolProp>
-        </CounterConfig>
-        <hashTree/>
-
-        <!-- HTTP请求：查询不存在的商铺 -->
-        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET_查询不存在的商铺(穿透攻击模拟)" enabled="true">
-          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="用户定义的变量" enabled="true">
-            <collectionProp name="Arguments.arguments"/>
-          </elementProp>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET_Shop_NotExist" enabled="true">
           <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
           <stringProp name="HTTPSampler.port">${PORT}</stringProp>
-          <stringProp name="HTTPSampler.protocol">${PROTOCOL}</stringProp>
-          <stringProp name="HTTPSampler.contentEncoding">UTF-8</stringProp>
-          <stringProp name="HTTPSampler.path">/shop/${nonExistShopId}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.contentEncoding">utf-8</stringProp>
+          <stringProp name="HTTPSampler.path">/shop/99999</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <stringProp name="HTTPSampler.method">GET</stringProp>
-          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
-          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
           <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
-          <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
-          <boolProp name="HTTPSampler.BROWSER_COMPATIBLE_MULTIPART">false</boolProp>
-          <boolProp name="HTTPSampler.image_parser">true</boolProp>
-          <stringProp name="HTTPSampler.embedded_url_replacements"></stringProp>
-          <stringProp name="HTTPSampler.connect_timeout">3000</stringProp>
-          <stringProp name="HTTPSampler.response_timeout">3000</stringProp>
-        </HTTPSamplerProxy>
-        <hashTree>
-
-          <!-- HTTP Header -->
-          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="认证头" enabled="true">
-            <collectionProp name="HeaderManager.headers">
-              <elementProp name="" elementType="Header">
-                <stringProp name="Header.name">Authorization</stringProp>
-                <stringProp name="Header.value">${TEST_TOKEN}</stringProp>
-              </elementProp>
-            </collectionProp>
-          </HeaderManager>
-          <hashTree/>
-
-          <!-- 响应断言：验证被正确拦截（返回失败或空数据） -->
-          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="断言_穿透被布隆过滤器拦截" enabled="true">
-            <collectionProp name="Asserion.test_strings">
-              <stringProp name="49586">(success.*false|商铺不存在|null)</stringProp>
-            </collectionProp>
-            <stringProp name="Assertion.custom_message">❌ 缓存穿透未被拦截！请求可能穿透到数据库，检查BloomFilter是否正常工作</stringProp>
-            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
-            <boolProp name="Assertion.assume_success">false</boolProp>
-            <intProp name="Assertion.test_type">2</intProp>
-            <stringProp name="Assertion.assume_success">false</stringProp>
-          </ResponseAssertion>
-          <hashTree/>
-
-          <!-- 响应时间断言：穿透拦截应该非常快（<50ms，布隆过滤器是内存操作） -->
-          <DurationAssertion guiclass="DurationAssertionGui" testclass="DurationAssertion" testname="断言_响应时间&lt;50ms_布隆过滤器应该很快" enabled="true">
-            <stringProp name="DurationAssertion.duration">50</stringProp>
-            <stringProp name="DurationAssertion.custom_message">⚠️ 穿透拦截响应过慢(&gt;50ms)，可能未走布隆过滤器，或者BloomFilter未初始化</stringProp>
-          </DurationAssertion>
-          <hashTree/>
-        </hashTree>
-
-        <!-- 统计结果 -->
-        <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="统计报告-缓存穿透" enabled="true">
-          <boolProp name="ResultCollector.error_logging">false</boolProp>
-          <objProp>
-            <name>saveConfig</name>
-            <value class="SampleSaveConfiguration">
-              <time>true</time>
-              <latency>true</latency>
-              <timestamp>true</timestamp>
-              <success>true</success>
-              <label>true</label>
-              <code>true</code>
-              <message>true</message>
-              <threadName>true</threadName>
-              <dataType>true</dataType>
-              <encoding>false</encoding>
-              <assertions>true</assertions>
-              <subresults>true</subresults>
-              <responseData>false</responseData>
-              <samplerData>false</samplerData>
-              <xml>false</xml>
-              <fieldNames>true</fieldNames>
-              <responseHeaders>false</responseHeaders>
-              <requestHeaders>false</requestHeaders>
-              <responseDataOnError>false</responseDataOnError>
-              <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
-              <assertionsResultsToSave>0</assertionsResultsToSave>
-              <bytes>true</bytes>
-              <sentBytes>true</sentBytes>
-              <url>true</url>
-              <threadCounts>true</threadCounts>
-              <idleTime>true</idleTime>
-              <connectTime>true</connectTime>
-            </value>
-          </objProp>
-          <stringProp name="filename">jmeter/results/02_cache_penetration_report.csv</stringProp>
-        </ResultCollector>
-        <hashTree/>
-      </hashTree>
-
-      <!-- ==================== 场景3: 缓存击穿测试 ==================== -->
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="03_缓存击穿测试_热点Key过期(2000线程)" enabled="true">
-        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
-        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="循环控制器" enabled="true">
-          <boolProp name="LoopController.continue_forever">false</boolProp>
-          <stringProp name="LoopController.loops">100</stringProp>
-        </elementProp>
-        <stringProp name="ThreadGroup.num_threads">2000</stringProp>
-        <stringProp name="ThreadGroup.ramp_time">1</stringProp>
-        <boolProp name="ThreadGroup.scheduler">false</boolProp>
-        <stringProp name="ThreadGroup.duration"></stringProp>
-        <stringProp name="ThreadGroup.delay"></stringProp>
-        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
-        <stringProp name="ThreadGroup.comments">
-⚠️ 重要：执行前必须手动触发热点Key过期！
-
-📊 场景说明：模拟热点商铺（如网红店上热搜）被瞬间大量访问
-🎯 测试目标：固定查询商铺ID=1（你的第一家商铺）
-🛡️ 防护机制：CacheClient的逻辑过期 + Redisson分布式锁
-📈 预期指标：
-   - QPS ≥ 8,000（即使缓存重建期间也能快速返回）
-   - P99 < 200ms（未获得锁的线程直接返回旧数据）
-   - 数据库查询次数 ≈ 1次（仅获得锁的线程重建缓存）
-   - 错误率 = 0%（无超时，无异常）
-
-🔧 触发击穿的步骤（必须在启动JMeter前完成）：
-   方法A - 通过Redis CLI手动修改（推荐）：
-   1. redis-cli GET cache:shop:1  # 查看当前缓存值
-   2. 复制返回的JSON，将expireTime改为当前时间后2秒
-   3. redis-cli SET cache:shop:1 '<修改后的JSON>'
-   4. 立即启动此场景的JMeter测试（2秒内）
-
-   方法B - 等待自然过期（如果你的逻辑过期TTL较短）：
-   1. 先清空该Key的缓存：redis-cli DEL cache:shop:1
-   2. 发起一次请求让缓存重建（此时开始计时）
-   3. 在TTL即将到期时（如还剩5秒），启动JMeter压测
-
-💡 验证重点：
-   - 应用日志中应看到"获得锁"/"返回旧数据"的日志
-   - MySQL慢查询日志中应该只有1次SELECT tb_shop WHERE id=1
-   - 大多数线程应该在50ms内返回（旧数据），而非等待锁释放
-        </stringProp>
-      </ThreadGroup>
-      <hashTree>
-
-        <!-- 固定请求同一个热点ID (ID=1，你的第一家商铺) -->
-        <UserParameters guiclass="UserParametersGui" testclass="UserParameters" testname="热点商铺ID=1_你的第一家商铺" enabled="true">
-          <collectionProp name="UserParameters.names">
-            <stringProp name="-1312849865">hotShopId</stringProp>
-          </collectionProp>
-          <collectionProp name="UserParameters.thread_values">
-            <collectionProp name="-1643566876">
-              <stringProp name="1652392738">1</stringProp>
-            </collectionProp>
-          </collectionProp>
-          <boolProp name="UserParameters.per_iteration">false</boolProp>
-        </UserParameters>
-        <hashTree/>
-
-        <!-- 同步定时器：模拟瞬间并发（所有线程在5秒内同时到达，制造真正的击穿） -->
-        <SyncTimer guiclass="SyncTimerGui" testclass="SyncTimer" testname="同步定时器_模拟2000人瞬间并发访问" enabled="true">
-          <stringProp name="Timer.groupSize">0</stringProp>
-          <stringProp name="Timer.timeoutInMs">5000</stringProp>
-          <stringProp name="Timer.comments">groupSize=0表示等待所有2000个线程就绪后一起发送请求</stringProp>
-        </SyncTimer>
-        <hashTree/>
-
-        <!-- HTTP请求：高并发查询热点商铺 -->
-        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET_高并发查询热点商铺(ID=1)_击穿测试" enabled="true">
-          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="用户定义的变量" enabled="true">
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
             <collectionProp name="Arguments.arguments"/>
           </elementProp>
-          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
-          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
-          <stringProp name="HTTPSampler.protocol">${PROTOCOL}</stringProp>
-          <stringProp name="HTTPSampler.contentEncoding">UTF-8</stringProp>
-          <stringProp name="HTTPSampler.path">/shop/${hotShopId}</stringProp>
-          <stringProp name="HTTPSampler.method">GET</stringProp>
-          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
-          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
-          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
-          <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
-          <boolProp name="HTTPSampler.BROWSER_COMPATIBLE_MULTIPART">false</boolProp>
-          <boolProp name="HTTPSampler.image_parser">true</boolProp>
-          <stringProp name="HTTPSampler.embedded_url_replacements"></stringProp>
-          <stringProp name="HTTPSampler.connect_timeout">5000</stringProp>
-          <stringProp name="HTTPSampler.response_timeout">10000</stringProp>
         </HTTPSamplerProxy>
-        <hashTree>
-
-          <!-- HTTP Header -->
-          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="认证头" enabled="true">
-            <collectionProp name="HeaderManager.headers">
-              <elementProp name="" elementType="Header">
-                <stringProp name="Header.name">Authorization</stringProp>
-                <stringProp name="Header.value">${TEST_TOKEN}</stringProp>
-              </elementProp>
-            </collectionProp>
-          </HeaderManager>
-          <hashTree/>
-
-          <!-- 响应断言：验证请求成功（即使返回旧数据也算成功，这是逻辑过期方案的特性） -->
-          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="断言_击穿防护有效_允许返回旧数据" enabled="true">
-            <collectionProp name="Asserion.test_strings">
-              <stringProp name="2078830833">&quot;success&quot;:true</stringProp>
-            </collectionProp>
-            <stringProp name="Assertion.custom_message">❌ 击穿防护失效！可能有大量请求打到数据库导致超时，检查分布式锁是否正常工作</stringProp>
-            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
-            <boolProp name="Assertion.assume_success">false</boolProp>
-            <intProp name="Assertion.test_type">16</intProp>
-          </ResponseAssertion>
-          <hashTree/>
-
-          <!-- 响应时间断言：击穿时应该快速返回（<200ms，即使是旧数据也比等锁快） -->
-          <DurationAssertion guiclass="DurationAssertionGui" testclass="DurationAssertion" testname="断言_响应时间&lt;200ms_逻辑过期方案应快速返回" enabled="true">
-            <stringProp name="DurationAssertion.duration">200</stringProp>
-            <stringProp name="DurationAssertion.custom_message">⚠️ 击穿时响应过慢(&gt;200ms)，可能未使用逻辑过期方案，或者锁等待时间过长</stringProp>
-          </DurationAssertion>
-          <hashTree/>
-        </hashTree>
-
-        <!-- 统计结果 -->
-        <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="统计报告-缓存击穿" enabled="true">
+        <hashTree/>
+        <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="Summary Report" enabled="true">
           <boolProp name="ResultCollector.error_logging">false</boolProp>
           <objProp>
             <name>saveConfig</name>
@@ -523,533 +128,27 @@
               <dataType>true</dataType>
               <encoding>false</encoding>
               <assertions>true</assertions>
-              <subresults>true</subresults>
+              <subresults>false</subresults>
               <responseData>false</responseData>
               <samplerData>false</samplerData>
               <xml>false</xml>
-              <fieldNames>true</fieldNames>
+              <fieldNames>false</fieldNames>
               <responseHeaders>false</responseHeaders>
               <requestHeaders>false</requestHeaders>
               <responseDataOnError>false</responseDataOnError>
-              <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+              <saveAssertionResultsFailureMessage>false</saveAssertionResultsFailureMessage>
               <assertionsResultsToSave>0</assertionsResultsToSave>
               <bytes>true</bytes>
               <sentBytes>true</sentBytes>
               <url>true</url>
               <threadCounts>true</threadCounts>
-              <idleTime>true</idleTime>
-              <connectTime>true</connectTime>
             </value>
           </objProp>
-          <stringProp name="filename">jmeter/results/03_cache_breakdown_report.csv</stringProp>
+          <stringProp name="filename">result_02.csv</stringProp>
         </ResultCollector>
         <hashTree/>
       </hashTree>
-
-      <!-- ==================== 场景4: 缓存雪崩测试 ==================== -->
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="04_缓存雪崩测试_TTL随机化效果(3000线程)" enabled="true">
-        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
-        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="循环控制器" enabled="true">
-          <boolProp name="LoopController.continue_forever">false</boolProp>
-          <stringProp name="LoopController.loops">50</stringProp>
-        </elementProp>
-        <stringProp name="ThreadGroup.num_threads">3000</stringProp>
-        <stringProp name="ThreadGroup.ramp_time">30</stringProp>
-        <boolProp name="ThreadGroup.scheduler">false</boolProp>
-        <stringProp name="ThreadGroup.duration"></stringProp>
-        <stringProp name="ThreadGroup.delay"></stringProp>
-        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
-        <stringProp name="ThreadGroup.comments">
-📊 场景说明：模拟大量缓存Key在短时间内集中过期
-🎯 测试目标：随机访问商铺ID 1-15（覆盖你所有的商铺）
-🛡️ 防护机制：CacheClient中的TTL随机化（±10秒）
-📈 预期指标：
-   - QPS ≥ 10,000（即使部分Key过期，整体仍能服务）
-   - P99 < 100ms（大部分请求仍能命中缓存）
-   - 数据库QPS平稳（无突然暴增）
-   - 无明显性能抖动（响应时间曲线平滑）
-
-🔄 对比测试建议（可选但强烈推荐）：
-   步骤1：先运行当前配置（有TTL随机化），记录基线数据
-   步骤2：临时修改CacheClient.java，注释掉TTL随机化代码（第63-64行）
-   步骤3：重启应用，清空缓存：redis-cli FLUSHDB
-   步骤4：重新预热缓存（访问所有15个商铺）
-   步骤5：再次运行此场景，等待TTL过期（约30分钟后）
-   步骤6：对比两次测试结果，观察数据库QPS峰值差异
-
-💡 预期对比结果：
-   有随机化：DB QPS峰值 ≈ 500（分散在20秒窗口内）
-   无随机化：DB QPS峰值 ≈ 15,000（同一时刻全部过期，可能打垮DB）
-        </stringProp>
-      </ThreadGroup>
-      <hashTree>
-
-        <!-- 随机选择商铺ID (1-15)，模拟大规模访问不同商铺 -->
-        <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="随机延迟_模拟真实用户间隔(均匀分布)" enabled="true">
-          <stringProp name="ConstantTimer.delay">50</stringProp>
-          <stringProp name="RandomTimer.range">100</stringProp>
-          <stringProp name="Timer.comments">每个请求间隔50-150ms，模拟真实用户的浏览节奏</stringProp>
-        </UniformRandomTimer>
-        <hashTree/>
-
-        <!-- 使用随机函数生成商铺ID（每次迭代都重新随机） -->
-        <UserParameters guiclass="UserParametersGui" testclass="UserParameters" testname="随机商铺ID(1-15)_每次迭代重新随机" enabled="true">
-          <collectionProp name="UserParameters.names">
-            <stringProp name="-1312849865">randomShopId</stringProp>
-          </collectionProp>
-          <collectionProp name="UserParameters.thread_values">
-            <collectionProp name="-1643566876">
-              <stringProp name="1652392738">${__Random(1,15,randomShopId)}</stringProp>
-            </collectionProp>
-          </collectionProp>
-          <boolProp name="UserParameters.per_iteration">true</boolProp>
-          <stringProp name="UserParameters.comments">使用JMeter内置 Random 函数，范围1-15匹配你的真实商铺数量</stringProp>
-        </UserParameters>
-        <hashTree/>
-
-        <!-- HTTP请求：查询商铺（模拟大量不同Key访问，触发可能的批量过期） -->
-        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET_批量查询不同商铺(雪崩测试)" enabled="true">
-          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="用户定义的变量" enabled="true">
-            <collectionProp name="Arguments.arguments"/>
-          </elementProp>
-          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
-          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
-          <stringProp name="HTTPSampler.protocol">${PROTOCOL}</stringProp>
-          <stringProp name="HTTPSampler.contentEncoding">UTF-8</stringProp>
-          <stringProp name="HTTPSampler.path">/shop/${randomShopId}</stringProp>
-          <stringProp name="HTTPSampler.method">GET</stringProp>
-          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
-          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
-          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
-          <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
-          <boolProp name="HTTPSampler.BROWSER_COMPATIBLE_MULTIPART">false</boolProp>
-          <boolProp name="HTTPSampler.image_parser">true</boolProp>
-          <stringProp name="HTTPSampler.embedded_url_replacements"></stringProp>
-          <stringProp name="HTTPSampler.connect_timeout">5000</stringProp>
-          <stringProp name="HTTPSampler.response_timeout">5000</stringProp>
-        </HTTPSamplerProxy>
-        <hashTree>
-
-          <!-- HTTP Header -->
-          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="认证头" enabled="true">
-            <collectionProp name="HeaderManager.headers">
-              <elementProp name="" elementType="Header">
-                <stringProp name="Header.name">Authorization</stringProp>
-                <stringProp name="Header.value">${TEST_TOKEN}</stringProp>
-              </elementProp>
-            </collectionProp>
-          </HeaderManager>
-          <hashTree/>
-
-          <!-- 响应断言：雪崩时系统仍应能正常服务（成功或失败都可以接受，但不能超时崩溃） -->
-          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="断言_雪崩时系统仍可正常服务" enabled="true">
-            <collectionProp name="Asserion.test_strings">
-              <stringProp name="2078830833">(success.*true|success.*false)</stringProp>
-            </collectionProp>
-            <stringProp name="Assertion.custom_message">❌ 雪崩导致服务不可用！可能出现连接超时或500错误，检查TTL随机化是否生效</stringProp>
-            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
-            <boolProp name="Assertion.assume_success">false</boolProp>
-            <intProp name="Assertion.test_type">2</intProp>
-          </ResponseAssertion>
-          <hashTree/>
-        </hashTree>
-
-        <!-- 统计结果 -->
-        <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="统计报告-缓存雪崩" enabled="true">
-          <boolProp name="ResultCollector.error_logging">false</boolProp>
-          <objProp>
-            <name>saveConfig</name>
-            <value class="SampleSaveConfiguration">
-              <time>true</time>
-              <latency>true</latency>
-              <timestamp>true</timestamp>
-              <success>true</success>
-              <label>true</label>
-              <code>true</code>
-              <message>true</message>
-              <threadName>true</threadName>
-              <dataType>true</dataType>
-              <encoding>false</encoding>
-              <assertions>true</assertions>
-              <subresults>true</subresults>
-              <responseData>false</responseData>
-              <samplerData>false</samplerData>
-              <xml>false</xml>
-              <fieldNames>true</fieldNames>
-              <responseHeaders>false</responseHeaders>
-              <requestHeaders>false</requestHeaders>
-              <responseDataOnError>false</responseDataOnError>
-              <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
-              <assertionsResultsToSave>0</assertionsResultsToSave>
-              <bytes>true</bytes>
-              <sentBytes>true</sentBytes>
-              <url>true</url>
-              <threadCounts>true</threadCounts>
-              <idleTime>true</idleTime>
-              <connectTime>true</connectTime>
-            </value>
-          </objProp>
-          <stringProp name="filename">jmeter/results/04_cache_avalanche_report.csv</stringProp>
-        </ResultCollector>
-        <hashTree/>
-      </hashTree>
-
-      <!-- ==================== 场景5: 秒杀系统压力测试（基于你的真实优惠券数据） ==================== -->
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="05_秒杀系统测试_50元代金券_库存100_(5000线程)" enabled="true">
-        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
-        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="循环控制器" enabled="true">
-          <boolProp name="LoopController.continue_forever">false</boolProp>
-          <stringProp name="LoopController.loops">1</stringProp>
-        </elementProp>
-        <stringProp name="ThreadGroup.num_threads">5000</stringProp>
-        <stringProp name="ThreadGroup.ramp_time">3</stringProp>
-        <boolProp name="ThreadGroup.scheduler">false</boolProp>
-        <stringProp name="ThreadGroup.duration"></stringProp>
-        <stringProp name="ThreadGroup.delay"></stringProp>
-        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
-        <stringProp name="ThreadGroup.comments">
-🎯 主测对象：50元代金券（voucher_id=1）
-📦 初始库存：100张（来自你的真实数据库 tb_seckill_voucher）
-🏪 所属商铺：商铺ID=1
-⏰ 有效期：2026-08-01 至 2027-10-03 23:59:59（当前有效）
-
-📊 场景说明：模拟5000用户同时抢购100张50元代金券
-🛡️ 技术架构：
-   ├─ Redis Lua脚本（seckill.lua）：原子性库存判断+扣减+下单
-   ├─ Redis Stream消息队列：异步解耦，削峰填谷
-   └─ 异步消费者（VoucherOrderHandler）：创建数据库订单
-
-📈 预期指标：
-   - QPS ≥ 15,000（Lua脚本执行<1ms，极快）
-   - P99 < 100ms（大部分用户在Redis层就被处理完毕）
-   - 最终订单数 = 100（等于初始库存，零超卖）
-   - 成功抢购用户数 = 100（前100个获得锁的用户）
-   - 库存不足用户数 = 4900（其余用户看到"库存不足"提示）
-
-🔧 测试前准备（必须完成！）：
-   1. 确认Redis中库存已初始化：
-      redis-cli GET seckill:stock:1  # 应该返回 "100"
-      如果不是，执行：redis-cli SET seckill:stock:1 100
-
-   2. 清空历史订单数据（避免干扰）：
-      redis-cli DEL seckill:order:1
-      redis-cli DEL stream.orders
-      -- 在MySQL中执行：DELETE FROM tb_voucher_order WHERE voucher_id=1;
-
-   3. （可选）如果库存已被消耗，重置数据库：
-      UPDATE tb_seckill_voucher SET stock = 100 WHERE voucher_id = 1;
-
-💡 测试后验证（非常重要！）：
-   1. 检查Redis最终库存：
-      redis-cli GET seckill:stock:1  # 应该为 "0"
-
-   2. 检查订单表总订单数：
-      SELECT COUNT(*) FROM tb_voucher_order WHERE voucher_id=1;
-      # 应该 = 100（绝对不能超过100！）
-
-   3. 检查是否有重复下单：
-      SELECT user_id, COUNT(*) as cnt FROM tb_voucher_order 
-      WHERE voucher_id=1 GROUP BY user_id HAVING cnt > 1;
-      # 应该返回空集（每用户限购1张）
-
-   4. 检查Stream消息是否消费完毕：
-      redis-cli XLEN stream.orders  # 应该为 0（所有消息已消费）
-        </stringProp>
-      </ThreadGroup>
-      <hashTree>
-
-        <!-- 使用全局变量 MAIN_VOUCHER_ID=1（50元代金券） -->
-        <UserParameters guiclass="UserParametersGui" testclass="UserParameters" testname="秒杀商品ID=${MAIN_VOUCHER_ID}_50元代金券" enabled="true">
-          <collectionProp name="UserParameters.names">
-            <stringProp name="-1312849865">voucherId</stringProp>
-          </collectionProp>
-          <collectionProp name="UserParameters.thread_values">
-            <collectionProp name="-1643566876">
-              <stringProp name="1652392738">${MAIN_VOUCHER_ID}</stringProp>
-            </collectionProp>
-          </collectionProp>
-          <boolProp name="UserParameters.per_iteration">false</boolProp>
-          <stringProp name="UserParameters.comments">使用全局变量MAIN_VOUCHER_ID，默认值为1（50元代金券，库存100）</stringProp>
-        </UserParameters>
-        <hashTree/>
-
-        <!-- 同步定时器：模拟秒杀瞬间并发（5000人在3秒内同时点击"立即抢购"按钮） -->
-        <SyncTimer guiclass="SyncTimerGui" testclass="SyncTimer" testname="同步定时器_模拟5000人同时抢购" enabled="true">
-          <stringProp name="Timer.groupSize">0</stringProp>
-          <stringProp name="Timer.timeoutInMs">3000</stringProp>
-          <stringProp name="Timer.comments">timeoutInMs=3000表示最多等3秒，超时后不再等待就直接发送</stringProp>
-        </SyncTimer>
-        <hashTree/>
-
-        <!-- HTTP请求：秒杀下单接口 -->
-        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST_秒杀下单_50元代金券" enabled="true">
-          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="用户定义的变量" enabled="true">
-            <collectionProp name="Arguments.arguments"/>
-          </elementProp>
-          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
-          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
-          <stringProp name="HTTPSampler.protocol">${PROTOCOL}</stringProp>
-          <stringProp name="HTTPSampler.contentEncoding">UTF-8</stringProp>
-          <stringProp name="HTTPSampler.path">/voucher-order/seckill/${voucherId}</stringProp>
-          <stringProp name="HTTPSampler.method">POST</stringProp>
-          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
-          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
-          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
-          <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
-          <boolProp name="HTTPSampler.BROWSER_COMPATIBLE_MULTIPART">false</boolProp>
-          <boolProp name="HTTPSampler.image_parser">true</boolProp>
-          <stringProp name="HTTPSampler.embedded_url_replacements"></stringProp>
-          <stringProp name="HTTPSampler.connect_timeout">5000</stringProp>
-          <stringProp name="HTTPSampler.response_timeout">10000</stringProp>
-        </HTTPSamplerProxy>
-        <hashTree>
-
-          <!-- HTTP Header：携带认证信息（用于识别用户身份，防止重复下单） -->
-          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="认证头_用户身份标识" enabled="true">
-            <collectionProp name="HeaderManager.headers">
-              <elementProp name="" elementType="Header">
-                <stringProp name="Header.name">Authorization</stringProp>
-                <stringProp name="Header.value">${TEST_TOKEN}</stringProp>
-              </elementProp>
-            </collectionProp>
-          </HeaderManager>
-          <hashTree/>
-
-          <!-- 响应断言1：HTTP状态码200 -->
-          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="断言_HTTP状态码200" enabled="true">
-            <collectionProp name="Asserion.test_strings">
-              <stringProp name="49586">200</stringProp>
-            </collectionProp>
-            <stringProp name="Assertion.custom_message">❌ 秒杀接口返回非200状态码，可能是服务器内部错误</stringProp>
-            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
-            <boolProp name="Assertion.assume_success">false</boolProp>
-            <intProp name="Assertion.test_type">8</intProp>
-          </ResponseAssertion>
-          <hashTree/>
-
-          <!-- 响应断言2：验证业务逻辑（三种结果都是正常的） -->
-          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="断言_业务逻辑正确_成功/库存不足/重复下单" enabled="true">
-            <collectionProp name="Asserion.test_strings">
-              <stringProp name="49586">(orderId|&quot;msg&quot;:&quot;库存不足&quot;|&quot;msg&quot;:&quot;不能重复下单&quot;)</stringProp>
-            </collectionProp>
-            <stringProp name="Assertion.custom_message">❌ 秒杀业务逻辑异常，返回了非预期的结果格式</stringProp>
-            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
-            <boolProp name="Assertion.assume_success">false</boolProp>
-            <intProp name="Assertion.test_type">2</intProp>
-            <stringProp name="Assertion.comments">
-              可能的三种返回结果：
-              1. {"orderId": 12345, ...} - 抢购成功，返回订单ID
-              2. {"msg": "库存不足"} - 抢购失败，库存已耗尽
-              3. {"msg": "不能重复下单"} - 该用户已经抢过一张了
-            </stringProp>
-          </ResponseAssertion>
-          <hashTree/>
-
-          <!-- 响应时间断言：Lua脚本执行应该非常快（<100ms，纯内存操作） -->
-          <DurationAssertion guiclass="DurationAssertionGui" testclass="DurationAssertion" testname="断言_Lua脚本执行&lt;100ms_应该是毫秒级" enabled="true">
-            <stringProp name="DurationAssertion.duration">100</stringProp>
-            <stringProp name="DurationAssertion.custom_message">⚠️ Lua脚本执行过慢(&gt;100ms)，可能存在性能问题或Redis阻塞</stringProp>
-          </DurationAssertion>
-          <hashTree/>
-        </hashTree>
-
-        <!-- 统计结果 -->
-        <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="统计报告-秒杀系统_50元代金券" enabled="true">
-          <boolProp name="ResultCollector.error_logging">false</boolProp>
-          <objProp>
-            <name>saveConfig</name>
-            <value class="SampleSaveConfiguration">
-              <time>true</time>
-              <latency>true</latency>
-              <timestamp>true</timestamp>
-              <success>true</success>
-              <label>true</label>
-              <code>true</code>
-              <message>true</message>
-              <threadName>true</threadName>
-              <dataType>true</dataType>
-              <encoding>false</encoding>
-              <assertions>true</assertions>
-              <subresults>true</subresults>
-              <responseData>false</responseData>
-              <samplerData>false</samplerData>
-              <xml>false</xml>
-              <fieldNames>true</fieldNames>
-              <responseHeaders>false</responseHeaders>
-              <requestHeaders>false</requestHeaders>
-              <responseDataOnError>false</responseDataOnError>
-              <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
-              <assertionsResultsToSave>0</assertionsResultsToSave>
-              <bytes>true</bytes>
-              <sentBytes>true</sentBytes>
-              <url>true</url>
-              <threadCounts>true</threadCounts>
-              <idleTime>true</idleTime>
-              <connectTime>true</connectTime>
-            </value>
-          </objProp>
-          <stringProp name="filename">jmeter/results/05_seckill_voucher1_report.csv</stringProp>
-        </ResultCollector>
-        <hashTree/>
-      </hashTree>
-
-      <!-- ==================== 场景6: 高库存秒杀测试（新增！20元代金券，库存200） ==================== -->
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="06_秒杀系统测试_20元代金券_库存200_(8000线程)" enabled="true">
-        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
-        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="循环控制器" enabled="true">
-          <boolProp name="LoopController.continue_forever">false</boolProp>
-          <stringProp name="LoopController.loops">1</stringProp>
-        </elementProp>
-        <stringProp name="ThreadGroup.num_threads">8000</stringProp>
-        <stringProp name="ThreadGroup.ramp_time">5</stringProp>
-        <boolProp name="ThreadGroup.scheduler">false</boolProp>
-        <stringProp name="ThreadGroup.duration"></stringProp>
-        <stringProp name="ThreadGroup.delay"></stringProp>
-        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
-        <stringProp name="ThreadGroup.comments">
-🎯 辅助测试对象：20元代金券（voucher_id=5）
-📦 初始库存：200张（比主测对象多一倍，测试更高并发下的表现）
-🏪 所属商铺：商铺ID=4
-⏰ 有效期：2026-08-01 至 2027-09-30 23:59:59（当前有效）
-
-📊 与场景5的区别：
-   - 库存更多（200 vs 100），可以支持更高并发测试
-   - 线程数更多（8000 vs 5000），测试系统极限承载能力
-   - 用于验证系统在高库存+超高并发下的稳定性
-
-🔧 测试前准备：
-   redis-cli SET seckill:stock:5 200
-   redis-cli DEL seckill:order:5
-        </stringProp>
-      </ThreadGroup>
-      <hashTree>
-
-        <!-- 使用全局变量 HIGH_STOCK_VOUCHER_ID=5（20元代金券，库存200） -->
-        <UserParameters guiclass="UserParametersGui" testclass="UserParameters" testname="秒杀商品ID=${HIGH_STOCK_VOUCHER_ID}_20元代金券" enabled="true">
-          <collectionProp name="UserParameters.names">
-            <stringProp name="-1312849865">highStockVoucherId</stringProp>
-          </collectionProp>
-          <collectionProp name="UserParameters.thread_values">
-            <collectionProp name="-1643566876">
-              <stringProp name="1652392738">${HIGH_STOCK_VOUCHER_ID}</stringProp>
-            </collectionProp>
-          </collectionProp>
-          <boolProp name="UserParameters.per_iteration">false</boolProp>
-        </UserParameters>
-        <hashTree/>
-
-        <!-- 同步定时器 -->
-        <SyncTimer guiclass="SyncTimerGui" testclass="SyncTimer" testname="同步定时器_8000人同时抢购" enabled="true">
-          <stringProp name="Timer.groupSize">0</stringProp>
-          <stringProp name="Timer.timeoutInMs">5000</stringProp>
-        </SyncTimer>
-        <hashTree/>
-
-        <!-- HTTP请求 -->
-        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST_秒杀下单_20元代金券_高库存测试" enabled="true">
-          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="用户定义的变量" enabled="true">
-            <collectionProp name="Arguments.arguments"/>
-          </elementProp>
-          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
-          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
-          <stringProp name="HTTPSampler.protocol">${PROTOCOL}</stringProp>
-          <stringProp name="HTTPSampler.contentEncoding">UTF-8</stringProp>
-          <stringProp name="HTTPSampler.path">/voucher-order/seckill/${highStockVoucherId}</stringProp>
-          <stringProp name="HTTPSampler.method">POST</stringProp>
-          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
-          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
-          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
-          <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
-          <boolProp name="HTTPSampler.BROWSER_COMPATIBLE_MULTIPART">false</boolProp>
-          <boolProp name="HTTPSampler.image_parser">true</boolProp>
-          <stringProp name="HTTPSampler.embedded_url_replacements"></stringProp>
-          <stringProp name="HTTPSampler.connect_timeout">5000</stringProp>
-          <stringProp name="HTTPSampler.response_timeout">10000</stringProp>
-        </HTTPSamplerProxy>
-        <hashTree>
-
-          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="认证头" enabled="true">
-            <collectionProp name="HeaderManager.headers">
-              <elementProp name="" elementType="Header">
-                <stringProp name="Header.name">Authorization</stringProp>
-                <stringProp name="Header.value">${TEST_TOKEN}</stringProp>
-              </elementProp>
-            </collectionProp>
-          </HeaderManager>
-          <hashTree/>
-
-          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="断言_HTTP状态码200" enabled="true">
-            <collectionProp name="Asserion.test_strings">
-              <stringProp name="49586">200</stringProp>
-            </collectionProp>
-            <stringProp name="Assertion.custom_message">❌ HTTP状态码非200</stringProp>
-            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
-            <boolProp name="Assertion.assume_success">false</boolProp>
-            <intProp name="Assertion.test_type">8</intProp>
-          </ResponseAssertion>
-          <hashTree/>
-
-          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="断言_业务逻辑正确" enabled="true">
-            <collectionProp name="Asserion.test_strings">
-              <stringProp name="49586">(orderId|&quot;msg&quot;:&quot;库存不足&quot;|&quot;msg&quot;:&quot;不能重复下单&quot;)</stringProp>
-            </collectionProp>
-            <stringProp name="Assertion.custom_message">❌ 业务逻辑异常</stringProp>
-            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
-            <boolProp name="Assertion.assume_success">false</boolProp>
-            <intProp name="Assertion.test_type">2</intProp>
-          </ResponseAssertion>
-          <hashTree/>
-
-          <DurationAssertion guiclass="DurationAssertionGui" testclass="DurationAssertion" testname="断言_Lua&lt;100ms" enabled="true">
-            <stringProp name="DurationAssertion.duration">100</stringProp>
-            <stringProp name="DurationAssertion.custom_message">⚠️ Lua执行过慢</stringProp>
-          </DurationAssertion>
-          <hashTree/>
-        </hashTree>
-
-        <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="统计报告-秒杀系统_20元代金券" enabled="true">
-          <boolProp name="ResultCollector.error_logging">false</boolProp>
-          <objProp>
-            <name>saveConfig</name>
-            <value class="SampleSaveConfiguration">
-              <time>true</time>
-              <latency>true</latency>
-              <timestamp>true</timestamp>
-              <success>true</success>
-              <label>true</label>
-              <code>true</code>
-              <message>true</message>
-              <threadName>true</threadName>
-              <dataType>true</dataType>
-              <encoding>false</encoding>
-              <assertions>true</assertions>
-              <subresults>true</subresults>
-              <responseData>false</responseData>
-              <samplerData>false</samplerData>
-              <xml>false</xml>
-              <fieldNames>true</fieldNames>
-              <responseHeaders>false</responseHeaders>
-              <requestHeaders>false</requestHeaders>
-              <responseDataOnError>false</responseDataOnError>
-              <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
-              <assertionsResultsToSave>0</assertionsResultsToSave>
-              <bytes>true</bytes>
-              <sentBytes>true</sentBytes>
-              <url>true</url>
-              <threadCounts>true</threadCounts>
-              <idleTime>true</idleTime>
-              <connectTime>true</connectTime>
-            </value>
-          </objProp>
-          <stringProp name="filename">jmeter/results/06_seckill_voucher5_report.csv</stringProp>
-        </ResultCollector>
-        <hashTree/>
-      </hashTree>
-
-      <!-- ==================== 全局监听器和报告 ==================== -->
-
-      <!-- 查看结果树（调试用，生产环境可禁用以提升性能） -->
-      <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="查看结果树_调试用_建议生产环境禁用" enabled="false">
+      <ResultCollector guiclass="StatVisualizer" testclass="ResultCollector" testname="Aggregate Report">
         <boolProp name="ResultCollector.error_logging">false</boolProp>
         <objProp>
           <name>saveConfig</name>
@@ -1065,180 +164,25 @@
             <dataType>true</dataType>
             <encoding>false</encoding>
             <assertions>true</assertions>
-            <subresults>true</subresults>
-            <responseData>true</responseData>
-            <samplerData>true</samplerData>
-            <xml>false</xml>
-            <fieldNames>true</fieldNames>
-            <responseHeaders>true</responseHeaders>
-            <requestHeaders>true</requestHeaders>
-            <responseDataOnError>true</responseDataOnError>
-            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
-            <assertionsResultsToSave>0</assertionsResultsToSave>
-            <bytes>true</bytes>
-            <sentBytes>true</sentBytes>
-            <url>true</url>
-            <threadCounts>true</threadCounts>
-            <idleTime>true</idleTime>
-            <connectTime>true</connectTime>
-          </value>
-        </objProp>
-        <stringProp name="filename"></stringProp>
-        <stringProp name="ResultCollector.comments">⚠️ 此监听器会保存完整的请求/响应数据，在大并发下会消耗大量内存和磁盘，建议仅在调试时启用</stringProp>
-      </ResultCollector>
-      <hashTree/>
-
-      <!-- 聚合报告：汇总所有场景的性能数据 -->
-      <ResultCollector guiclass="StatVisualizer" testclass="ResultCollector" testname="聚合报告_全部场景汇总" enabled="true">
-        <boolProp name="ResultCollector.error_logging">false</boolProp>
-        <objProp>
-          <name>saveConfig</name>
-          <value class="SampleSaveConfiguration">
-            <time>true</time>
-            <latency>true</latency>
-            <timestamp>true</timestamp>
-            <success>true</success>
-            <label>true</label>
-            <code>true</code>
-            <message>true</message>
-            <threadName>true</threadName>
-            <dataType>true</dataType>
-            <encoding>false</encoding>
-            <assertions>true</assertions>
-            <subresults>true</subresults>
+            <subresults>false</subresults>
             <responseData>false</responseData>
             <samplerData>false</samplerData>
             <xml>false</xml>
-            <fieldNames>true</fieldNames>
+            <fieldNames>false</fieldNames>
             <responseHeaders>false</responseHeaders>
             <requestHeaders>false</requestHeaders>
             <responseDataOnError>false</responseDataOnError>
-            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <saveAssertionResultsFailureMessage>false</saveAssertionResultsFailureMessage>
             <assertionsResultsToSave>0</assertionsResultsToSave>
             <bytes>true</bytes>
             <sentBytes>true</sentBytes>
             <url>true</url>
             <threadCounts>true</threadCounts>
-            <idleTime>true</idleTime>
-            <connectTime>true</connectTime>
           </value>
         </objProp>
-        <stringProp name="filename">jmeter/results/aggregation_report_all_scenarios.csv</stringProp>
+        <stringProp name="filename">aggregate_all.csv</stringProp>
       </ResultCollector>
       <hashTree/>
-
-      <!-- 响应时间图：可视化各场景的响应时间趋势 -->
-      <ResultCollector guiclass="GraphVisualizer" testclass="ResultCollector" testname="响应时间图_趋势分析" enabled="true">
-        <boolProp name="ResultCollector.error_logging">false</boolProp>
-        <objProp>
-          <name>saveConfig</name>
-          <value class="SampleSaveConfiguration">
-            <time>true</time>
-            <latency>true</latency>
-            <timestamp>true</timestamp>
-            <success>true</success>
-            <label>true</label>
-            <code>true</code>
-            <message>true</message>
-            <threadName>true</threadName>
-            <dataType>true</dataType>
-            <encoding>false</encoding>
-            <assertions>true</assertions>
-            <subresults>true</subresults>
-            <responseData>false</responseData>
-            <samplerData>false</samplerData>
-            <xml>false</xml>
-            <fieldNames>true</fieldNames>
-            <responseHeaders>false</responseHeaders>
-            <requestHeaders>false</requestHeaders>
-            <responseDataOnError>false</responseDataOnError>
-            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
-            <assertionsResultsToSave>0</assertionsResultsToSave>
-            <bytes>true</bytes>
-            <sentBytes>true</sentBytes>
-            <url>true</url>
-            <threadCounts>true</threadCounts>
-            <idleTime>true</idleTime>
-            <connectTime>true</connectTime>
-          </value>
-        </objProp>
-        <stringProp name="filename"></stringProp>
-      </ResultCollector>
-      <hashTree/>
-
-      <!-- 吞吐量报告：QPS统计 -->
-      <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="吞吐量报告_QPS统计" enabled="true">
-        <boolProp name="ResultCollector.error_logging">false</boolProp>
-        <objProp>
-          <name>saveConfig</name>
-          <value class="SampleSaveConfiguration">
-            <time>true</time>
-            <latency>true</latency>
-            <timestamp>true</timestamp>
-            <success>true</success>
-            <label>true</label>
-            <code>true</code>
-            <message>true</message>
-            <threadName>true</threadName>
-            <dataType>true</dataType>
-            <encoding>false</encoding>
-            <assertions>true</assertions>
-            <subresults>true</subresults>
-            <responseData>false</responseData>
-            <samplerData>false</samplerData>
-            <xml>false</xml>
-            <fieldNames>true</fieldNames>
-            <responseHeaders>false</responseHeaders>
-            <requestHeaders>false</requestHeaders>
-            <responseDataOnError>false</responseDataOnError>
-            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
-            <assertionsResultsToSave>0</assertionsResultsToSave>
-            <bytes>true</bytes>
-            <sentBytes>true</sentBytes>
-            <url>true</url>
-            <threadCounts>true</threadCounts>
-            <idleTime>true</idleTime>
-            <connectTime>true</connectTime>
-          </value>
-        </objProp>
-        <stringProp name="filename">jmeter/results/throughput_report_all_scenarios.csv</stringProp>
-      </ResultCollector>
-      <hashTree/>
-
-      <!-- HTML仪表盘报告：生成可视化的HTML报告 -->
-      <ResultCollector guiclass="StatVisualizer" testclass="ResultCollector" testname="HTML仪表盘报告_可视化展示" enabled="true">
-        <boolProp name="ResultCollector.error_logging">false</boolProp>
-        <objProp>
-          <name>saveConfig</name>
-          <value class="SampleSaveConfiguration">
-            <time>true</time>
-            <latency>true</latency>
-            <timestamp>true</timestamp>
-            <success>true</success>
-            <label>true</label>
-            <code>true</code>
-            <message>true</message>
-            <threadName>true</threadName>
-            <dataType>true</dataType>
-            <encoding>false</encoding>
-            <assertions>true</assertions>
-            <subresults>true</subresults>
-            <responseData>false</responseData>
-            <samplerData>false</samplerData>
-            <xml>false</xml>
-            <fieldNames>true</fieldNames>
-            <responseHeaders>false</responseHeaders>
-            <requestHeaders>false</requestHeaders>
-            <responseDataOnError>false</responseDataOnError>
-            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
-            <assertionsResultsToSave>0</assertionsResultsToSave>
-            <bytes>true</bytes>
-            <sentBytes>true</sentBytes>
-            <url>true</url>
-            <threadCounts>true</threadCounts>
-            <idleTime>true</idleTime>
-            <connectTime>true</connectTime>
-          </value>
-        </objProp>
-        <stringProp name="filename">jmeter/results/html_dashboard_report</stringProp>
-        <stringProp
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

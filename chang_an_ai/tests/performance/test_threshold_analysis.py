@@ -22,7 +22,8 @@ class TestThreshold:
         called = []
         monkeypatch.setattr(rag_service, "chat_stream", lambda m: (called.append(m) or iter([])))
         events = list(rag_service.answer("测试", []))
-        assert events[0] == ("sources", [])
+        assert events[0] == ("status", "正在检索知识库…")  # 新增状态提示
+        assert events[1] == ("sources", [])  # 空sources（无有效命中）
         assert not called  # LLM未被调用 ✅
 
     def test_above_threshold_calls_llm(self, monkeypatch):
@@ -32,7 +33,8 @@ class TestThreshold:
         called = []
         monkeypatch.setattr(rag_service, "chat_stream", lambda m: (called.append(m) or iter(["ok"])))
         events = list(rag_service.answer("测试", []))
-        assert len(events[0][1]) == 2
+        assert events[0] == ("status", "正在检索知识库…")  # 状态提示
+        assert len(events[1][1]) == 2  # sources事件有2条结果
         assert called  # LLM被调用 ✅
 
     @pytest.mark.parametrize("sim,should_pass", [(0.349, False), (0.350, True), (0.351, True)])
@@ -44,9 +46,11 @@ class TestThreshold:
         monkeypatch.setattr(rag_service, "chat_stream", lambda m: (called.append(m) or iter([])))
         events = list(rag_service.answer("测试", []))
         if should_pass:
-            assert len(events[0][1]) == 1 and called
+            assert events[0] == ("status", "正在检索知识库…")  # 状态提示
+            assert len(events[1][1]) == 1 and called  # 有sources且调用了LLM
         else:
-            assert events[0] == ("sources", []) and not called
+            assert events[0] == ("status", "正在检索知识库…")  # 状态提示
+            assert events[1] == ("sources", []) and not called  # 空sources且未调用LLM
 
     def test_threshold_f1_score(self):
         """核心价值：计算0.35的F1-score"""

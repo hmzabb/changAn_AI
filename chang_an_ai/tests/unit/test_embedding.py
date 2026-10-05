@@ -4,30 +4,43 @@
 1. 工厂函数返回正确实例
 2. embed_texts 正确解析响应格式
 3. API错误时的异常传播
+
+适配 openai SDK >= 3.0：OpenAI 已改为模块级导入。
 """
 import pytest
 from unittest.mock import MagicMock, patch
-from app.services.embedding import get_embedding_client, SiliconflowEmbeddingClient
+
+from app.services.embedding import (
+    get_embedding_client,
+    SiliconflowEmbeddingClient,
+)
 
 
 class TestGetEmbeddingClient:
     """工厂函数测试"""
 
+    def setup_method(self):
+        """每个测试前清除 LRU 缓存"""
+        get_embedding_client.cache_clear()
+
     def test_returns_siliconflow_client(self):
-        with patch("app.services.embedding.OpenAI"):
+        """工厂返回正确类型"""
+        with patch("app.services.embedding.OpenAI") as MockOpenAI:
+            MockOpenAI.return_value = MagicMock()
             client = get_embedding_client()
             assert isinstance(client, SiliconflowEmbeddingClient)
 
     def test_lru_cache_singleton(self):
         """LRU缓存保证单例"""
-        with patch("app.services.embedding.OpenAI"):
+        with patch("app.services.embedding.OpenAI") as MockOpenAI:
+            MockOpenAI.return_value = MagicMock()
             client1 = get_embedding_client()
             client2 = get_embedding_client()
             assert client1 is client2
 
     def test_cache_maxsize_1(self):
         """maxsize=1：多次调用只创建一个实例"""
-        with patch("app.services.embedding.OpenAI"), \
+        with patch("app.services.embedding.OpenAI") as MockOpenAI, \
              patch.object(SiliconflowEmbeddingClient, "__init__", return_value=None) as mock_init:
             get_embedding_client()
             get_embedding_client()
@@ -35,17 +48,16 @@ class TestGetEmbeddingClient:
 
 
 class TestSiliconflowEmbeddingClient:
-    """Embedding客户端核心功能测试"""
+    """Embedding客户端核心功能测试（直接mock _client，无需patch OpenAI）"""
 
     @pytest.fixture
     def client(self):
-        with patch("app.services.embedding.OpenAI") as MockOpenAI:
-            mock_openai_instance = MagicMock()
-            MockOpenAI.return_value = mock_openai_instance
-            client = SiliconflowEmbeddingClient.__new__(SiliconflowEmbeddingClient)
-            client._client = mock_openai_instance
-            client._model = "test-model"
-            return client
+        """通过 __new__ 创建客户端，mock 内部 _client"""
+        mock_openai_client = MagicMock()
+        client = SiliconflowEmbeddingClient.__new__(SiliconflowEmbeddingClient)
+        client._client = mock_openai_client
+        client._model = "test-model"
+        return client
 
     def test_embed_texts_single_text(self, client):
         """单条文本向量化"""
@@ -100,48 +112,48 @@ class TestSiliconflowEmbeddingClient:
 
 
 class TestEmbeddingErrorHandling:
-    """错误处理测试"""
+    """错误处理测试（直接 mock 内部 _client，匹配新版 SDK 错误类型）"""
 
     def test_api_error_propagation(self):
         """API错误应该向上抛出"""
         from openai import APIError
-        with patch("app.services.embedding.OpenAI") as MockOpenAI:
-            mock_client = MagicMock()
-            mock_client.embeddings.create.side_effect = APIError("API错误")
-            MockOpenAI.return_value = mock_client
 
-            client = SiliconflowEmbeddingClient.__new__(SiliconflowEmbeddingClient)
-            client._client = mock_client
-            client._model = "test-model"
+        client = SiliconflowEmbeddingClient.__new__(SiliconflowEmbeddingClient)
+        client._model = "test-model"
+        client._client = MagicMock()
+        client._client.embeddings.create.side_effect = APIError(
+            message="API错误",
+            request=MagicMock(),
+            body={"error": {"message": "mock error"}},
+        )
 
-            with pytest.raises(APIError):
-                client.embed_texts(["测试"])
+        with pytest.raises(APIError):
+            client.embed_texts(["测试"])
 
     def test_network_timeout(self):
         """网络超时处理"""
         from openai import APITimeoutError
-        with patch("app.services.embedding.OpenAI") as MockOpenAI:
-            mock_client = MagicMock()
-            mock_client.embeddings.create.side_effect = APITimeoutError("请求超时")
-            MockOpenAI.return_value = mock_client
 
-            client = SiliconflowEmbeddingClient.__new__(SiliconflowEmbeddingClient)
-            client._client = mock_client
-            client._model = "test-model"
+        client = SiliconflowEmbeddingClient.__new__(SiliconflowEmbeddingClient)
+        client._model = "test-model"
+        client._client = MagicMock()
+        client._client.embeddings.create.side_effect = APITimeoutError(
+            request=MagicMock(),
+        )
 
-            with pytest.raises(APITimeoutError):
-                client.embed_texts(["测试"])
+        with pytest.raises(APITimeoutError):
+            client.embed_texts(["测试"])
 
 
 class TestEmbeddingIntegrationNotes:
     """
     集成测试说明（需要真实API，不在此处运行）：
-    
+
     运行方式：
     ```bash
-    pytest tests/test_embedding.py::TestEmbeddingIntegration -s --api-key=$SILICONFLOW_KEY
+    pytest tests/unit/test_embedding.py::TestEmbeddingIntegration -s --api-key=$SILICONFLOW_KEY
     ```
-    
+
     测试项：
     1. 真实API调用的延迟（应该<500ms/batch）
     2. 中文文本的embedding质量（相似文本的余弦相似度>0.8）

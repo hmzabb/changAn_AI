@@ -76,32 +76,14 @@ async def _route(req: ChatRequest) -> str:
     - 准确率：96%+（覆盖真实C端场景）
 
     监控集成：
-    - 自动记录每次路由决策到RoutingMonitor
-    - 支持延迟统计、准确率分析、异常检测
+    - 自动记录每次路由决策到RoutingMonitor（业务诊断维度）
+    - Prometheus 负责 HTTP 层指标（QPS/P99延迟/错误率）
     """
-    import time
-    start_time = time.perf_counter()
-    monitor = get_routing_monitor()
-
     if req.mode == "agent":
-        latency = (time.perf_counter() - start_time) * 1000
-        monitor.record_routing(
-            session_id=req.session_id,
-            message=req.message,
-            mode=req.mode,
-            route_result="agent",
-            latency_ms=latency,
-        )
+        get_routing_monitor().record("agent", has_agent=False, has_rag=False)
         return "agent"
     if req.mode == "rag":
-        latency = (time.perf_counter() - start_time) * 1000
-        monitor.record_routing(
-            session_id=req.session_id,
-            message=req.message,
-            mode=req.mode,
-            route_result="rag",
-            latency_ms=latency,
-        )
+        get_routing_monitor().record("rag", has_agent=False, has_rag=False)
         return "rag"
 
     msg = req.message
@@ -117,33 +99,15 @@ async def _route(req: ChatRequest) -> str:
 
         if has_agent and not has_rag:
             logger.debug(f"[路由] Agent特征匹配: '{msg[:30]}...'")
-            latency = (time.perf_counter() - start_time) * 1000
-            monitor.record_routing(
-                session_id=req.session_id,
-                message=msg,
-                mode=req.mode,
-                route_result="agent",
-                latency_ms=latency,
-                has_agent_keywords=True,
-                has_rag_keywords=False,
-            )
+            get_routing_monitor().record("agent", has_agent=True, has_rag=False)
             return "agent"
         elif has_rag and not has_agent:
             logger.debug(f"[路由] RAG特征匹配: '{msg[:30]}...'")
-            latency = (time.perf_counter() - start_time) * 1000
-            monitor.record_routing(
-                session_id=req.session_id,
-                message=msg,
-                mode=req.mode,
-                route_result="rag",
-                latency_ms=latency,
-                has_agent_keywords=False,
-                has_rag_keywords=True,
-            )
+            get_routing_monitor().record("rag", has_agent=False, has_rag=True)
             return "rag"
         elif has_agent and has_rag:
-            conflict_resolution = None
             route_result = "agent"
+            conflict_resolution = "default_agent"
 
             for override_word, exceptions in RAG_FORCE_COMBINATIONS.items():
                 if override_word in msg and any(exc in msg for exc in exceptions):
@@ -154,33 +118,15 @@ async def _route(req: ChatRequest) -> str:
 
             if route_result == "agent":
                 logger.debug(f"[路由] 冲突→默认Agent: '{msg[:30]}...'")
-                conflict_resolution = "default_agent"
 
-            latency = (time.perf_counter() - start_time) * 1000
-            monitor.record_routing(
-                session_id=req.session_id,
-                message=msg,
-                mode=req.mode,
-                route_result=route_result,
-                latency_ms=latency,
-                has_agent_keywords=True,
-                has_rag_keywords=True,
-                conflict_detected=True,
-                conflict_resolution=conflict_resolution,
+            get_routing_monitor().record(
+                route_result, has_agent=True, has_rag=True,
+                conflict=conflict_resolution,
             )
             return route_result
         else:
             logger.debug(f"[路由] 无特征→兜底RAG: '{msg[:30]}...'")
-            latency = (time.perf_counter() - start_time) * 1000
-            monitor.record_routing(
-                session_id=req.session_id,
-                message=msg,
-                mode=req.mode,
-                route_result="rag",
-                latency_ms=latency,
-                has_agent_keywords=False,
-                has_rag_keywords=False,
-            )
+            get_routing_monitor().record("rag", has_agent=False, has_rag=False)
             return "rag"
 
     except Exception as e:
