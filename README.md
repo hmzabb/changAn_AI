@@ -18,7 +18,7 @@
 </p>
 
 > **💡 项目说明**：本项目为个人学习项目，用于技术探索和实习面试准备，**尚未部署至生产环境**。<br>
-> ✅ 已完成：简化版关键词路由（<1ms延迟）、手搓RAG重构、并行工具优化、全面测试覆盖（70+用例）、路由监控系统<br>
+> ✅ 已完成：简化版关键词路由（<1ms延迟）、手搓RAG重构、并行工具优化、全面测试覆盖（70+用例）、路由监控系统、西安旅游语料库扩充（27篇）、专业检索质量评估体系<br>
 > ⏳ 待完成：云服务器部署、完整压测验证、线上A/B测试
 
 ---
@@ -28,10 +28,11 @@
 | 功能 | 简介 | 示例对话 |
 |------|------|----------|
 | ⚡ **简化版关键词路由** | <1ms延迟，96%+准确率，零依赖，C端优化设计 | 「景点门票价格」走RAG vs「附近店铺优惠」走Agent |
-| 🔍 **RAG 智能问答** | 西安文旅知识库 + 平台实时数据，流式回答带引用来源 | 「西安三日游怎么安排？」 |
+| 🔍 **RAG 智能问答** | 西安文旅知识库（27篇） + 平台实时数据，流式回答带引用来源 | 「西安三日游怎么安排？」 |
 | 🤖 **探店 Agent** | 6个工具并行调用（提速40-65%），多轮对话+距离排序 | 「钟楼附近人均80以下的美食店，有优惠券吗？」 |
 | ✍️ **笔记 AI 辅助** | 一键生成标题（5选1）、风格润色、情感分析自检 | 文艺 / 幽默 / 朴实三种风格 |
 | 📊 **路由监控系统** | 实时统计、异常检测、报告导出，持续优化准确率 | `/api/ai/routing/stats` 查看统计 |
+| 🧪 **专业评估体系** | RAG检索质量评估(NDCG/Hit/MRR) + 路由V2评估(300用例) | `python scripts/eval_retrieval_full.py` |
 
 ---
 
@@ -90,10 +91,14 @@ graph LR
 ### 核心组件
 | 组件 | 文件 | 能力 |
 |------|------|------|
-| 简化版路由 | `app/routing_config.py` + `app/routers/chat.py` | 关键词匹配，<1ms延迟，96%+准确率 |
+| 简化版路由 | `app/routing_config.py` + `app/routers/chat.py` | 关键词匹配，<1ms延迟，96%+准确率（含"去哪里"优化） |
 | 路由监控 | `app/routing_monitor.py` | 实时统计、异常检测、报告导出 |
+| Embedding服务 | `app/services/embedding.py` | SiliconFlow bge-m3，超时30s稳定性优化 |
 | 并行工具节点 | `app/agent/parallel_tools.py` | asyncio.gather 并行执行，提速 40-65% |
 | 手搓RAG | `app/services/rag_service.py` | Embedding→Milvus→Rerank→LLM流式生成 |
+| 旅游知识库 | `app/data/corpus/*.md` | 27篇西安文旅文档（景点/美食/攻略） |
+| RAG检索评估 | `scripts/eval_retrieval_full.py` | NDCG+Hit+MRR多维度，分层指标(Layer1-4) |
+| 路由V2评估 | `scripts/eval_routing_v2.py` | 300条场景矩阵，分布RAG:Agent:Boundary≈60:30:10 |
 
 ---
 
@@ -103,10 +108,15 @@ graph LR
 chang_an_travel/
 ├── chang_an_ai/                    # Python AI 服务 (FastAPI :8000)
 │   ├── app/
+│   │   ├── data/corpus/          # 📚 西安旅游知识库（27篇Markdown）
+│   │   │   ├── attractions/      #    景点文档（兵马俑/大雁塔/华山等11篇）
+│   │   │   ├── food/             #    美食文档（面食大全/餐厅推荐2篇）
+│   │   │   └── guides/           #    攻略指南（行程/购物/摄影等14篇）
 │   │   ├── routing_config.py      # ⚡ 简化版路由配置（关键词+冲突检测）
 │   │   ├── routing_monitor.py     # 📊 路由监控系统
 │   │   ├── services/
 │   │   │   ├── rag_service.py     # 🔍 手搓RAG（Embedding→Milvus→Rerank→LLM）
+│   │   │   ├── embedding.py       # 🔤 Embedding服务（超时30s稳定性优化）
 │   │   │   └── agent_service.py   # 🤖 Agent 编排
 │   │   ├── agent/
 │   │   │   ├── graph.py           #     LangGraph 状态图
@@ -117,6 +127,8 @@ chang_an_travel/
 │   ├── tests/                     # pytest 测试 (70+ 用例)
 │   │   └── routing/               # 🆕 路由测试套件
 │   └── scripts/                   # 工具脚本 (建库/评估)
+│       ├── eval_retrieval_full.py  # 🧪 RAG检索质量专业评估（NDCG+Hit+MRR）
+│       └── eval_routing_v2.py     # 🧪 路由准确率V2评估（300条场景矩阵）
 │
 └── chang_an_backend/              # Java 后端 + nginx
     ├── chang_an_dianping/         # Spring Boot (:8081)
@@ -206,13 +218,16 @@ open http://localhost:8080
 - ✅ 路由监控系统持续优化，每周可根据真实数据调整关键词
 - ✅ 用3%准确率换99.9%性能提升，对C端产品非常划算
 
-> 📖 [查看路由监控API →](#接口设计) `/api/ai/routing/stats`
-
 ### 2️⃣ RAG 智能问答
+
+**知识库规模**：27篇西安旅游专业文档
+- 🏛️ **景点** (11篇)：兵马俑、大雁塔、大唐芙蓉园、法门寺、壶口瀑布、华清宫、华山、乾陵、陕西历史博物馆、大明宫、碑林博物馆
+- 🍜 **美食** (2篇)：西安面食大全、餐厅推荐
+- 📖 **攻略** (14篇)：一日/两日/三日游、亲子游、穷游、摄影打卡、深度五日游、购物指南、季节旅行、夜生活、天气穿衣、历史文化概述等
 
 **Pipeline 流程**：
 ```
-用户问题 → 多轮改写 → Embedding → Milvus召回(Top8) → 重排(Top4) → LLM流式生成 → SSE输出
+用户问题 → 多轮改写 → Embedding(30s超时) → Milvus召回(Top8) → 重排(Top4) → LLM流式生成 → SSE输出
 ```
 
 **防幻觉三板斧**：
@@ -221,6 +236,15 @@ open http://localhost:8080
 - 引用标注 [1][2]（可点击跳转原文）
 
 **当前实现**：手搓RAG（93行代码，纯Python生成器，零框架依赖）
+
+**质量评估体系**：
+```bash
+# 运行专业检索评估（NDCG+Hit+MRR 多维度分析）
+python scripts/eval_retrieval_full.py
+
+# 输出文件：scripts/eval_retrieval_full.txt
+# 包含：分层指标(Layer1-4)、边界检测、重排效果对比
+```
 
 
 ### 3️⃣ 并行化探店 Agent
@@ -355,9 +379,17 @@ pytest tests/routing/ -v                  # 路由模块测试（含简化版路
 pytest tests/routing/test_simplified_routing.py -v  # 简化版路由（70+用例）
 pytest tests/routing/test_routing_monitor.py -v     # 路由监控测试
 pytest tests/unit/test_rag_service.py -v  # RAG服务单元测试
+
+# 🆕 运行专业评估脚本
+python scripts/eval_retrieval_full.py     # RAG检索质量评估（NDCG+Hit+MRR）
+python scripts/eval_routing_v2.py         # 路由准确率V2评估（300条场景矩阵用例）
 ```
 
-**测试覆盖**：70+ 测试用例，包含简化版路由、路由监控、RAG、重排、Embedding、Java客户端等模块
+**测试覆盖**：
+- **单元测试**：70+ 测试用例，包含简化版路由、路由监控、RAG、重排、Embedding、Java客户端等模块
+- **专业评估**：
+  - `eval_retrieval_full.py`：多相关文档 ground truth、分层指标(Layer1-4)、边界拒答校准
+  - `eval_routing_v2.py`：300条自动生成测试用例，分布 RAG:Agent:Boundary ≈ 60:30:10
 
 **Mock 策略**：Fake LLM / Fake Embedding / respx HTTP Mock（避免调用真实 API）
 
