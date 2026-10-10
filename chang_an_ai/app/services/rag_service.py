@@ -12,7 +12,11 @@ from app.services.reranker import rerank
 def retrieve(query: str) -> list[dict]:
     """检索：embedding → 向量库召回 top8 → 重排 top4。
 
-    返回 [{text, metadata, distance, similarity}]，similarity = 1 - distance
+    返回 [{text, metadata, similarity, milvus_sim}]：
+    - similarity: 交叉编码器重排后的精确相关性分数（用于排序和展示）
+    - milvus_sim: Milvus COSINE 相似度（用于阈值闸门判断，避免重排分数壓
+      缩导致有效文档被误伤）
+
     embedding 或 Milvus 异常时返回空列表，由上层 fallback 话术兜底——
     检索失败不阻塞问答，用户至少能得到"暂无相关信息"的回复。
     """
@@ -21,9 +25,13 @@ def retrieve(query: str) -> list[dict]:
         hits = get_store().query(qv, top_k=settings.rag_recall_top_k)
     except Exception:
         return []
-    # Milvus 版 query 返回 score（COSINE 相似度，越大越相关），直接作为 similarity。
-    hits = [dict(h, similarity=h["score"]) for h in hits]
-    return rerank(query, hits, top_k=settings.rag_rerank_top_k)
+    hits = [dict(h, similarity=h["score"], milvus_sim=h["score"]) for h in hits]
+    # 原始召回阶段过滤明显噪声，减少进入重排的候选数
+    hits = [h for h in hits if h["milvus_sim"] >= settings.rag_recall_min_score]
+    if not hits:
+        return []
+    reranked = rerank(query, hits, top_k=min(settings.rag_rerank_top_k, len(hits)))
+    return reranked
 
 
 def _build_context(hits: list[dict]) -> str:
@@ -72,7 +80,9 @@ def answer(query: str, history: list[dict]):
     yield ("status", "正在检索知识库…")
     search_query = rewrite(query, history)
     hits = retrieve(search_query)
-    valid_hits = [h for h in hits if h["similarity"] >= settings.rag_min_score]
+    # 用 Milvus COSINE 相似度做闸门判断（重排分数是交叉编码器的另一套量纲，
+    # 可能与原始余弦值相差很大，直接对重排分卡阈值会把好文档误杀）。
+    valid_hits = [h for h in hits if h.get("milvus_sim", h.get("similarity", 0)) >= settings.rag_min_score]
 
     if not valid_hits:
         yield ("sources", [])

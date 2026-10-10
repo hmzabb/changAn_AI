@@ -32,7 +32,7 @@
 | 🤖 **探店 Agent** | 6个工具并行调用（提速40-65%），多轮对话+距离排序 | 「钟楼附近人均80以下的美食店，有优惠券吗？」 |
 | ✍️ **笔记 AI 辅助** | 一键生成标题（5选1）、风格润色、情感分析自检 | 文艺 / 幽默 / 朴实三种风格 |
 | 📊 **路由监控系统** | 实时统计、异常检测、报告导出，持续优化准确率 | `/api/ai/routing/stats` 查看统计 |
-| 🧪 **专业评估体系** | RAG检索质量评估(NDCG/Hit/MRR) + 路由V2评估(300用例) | `python scripts/eval_retrieval_full.py` |
+| 🧪 **专业评估体系** | RAG检索质量评估(Hit@3=90.5%, Faithfulness 4.8/5) + 路由V2评估(300用例) | `python scripts/eval_retrieval_full.py` |
 
 ---
 
@@ -95,9 +95,10 @@ graph LR
 | 路由监控 | `app/routing_monitor.py` | 实时统计、异常检测、报告导出 |
 | Embedding服务 | `app/services/embedding.py` | SiliconFlow bge-m3，超时30s稳定性优化 |
 | 并行工具节点 | `app/agent/parallel_tools.py` | asyncio.gather 并行执行，提速 40-65% |
-| 手搓RAG | `app/services/rag_service.py` | Embedding→Milvus→Rerank→LLM流式生成 |
+| 手搓RAG | `app/services/rag_service.py` | Embedding→Milvus→Rerank→LLM流式生成，Hit@3=90.5% |
 | 旅游知识库 | `app/data/corpus/*.md` | 27篇西安文旅文档（景点/美食/攻略） |
-| RAG检索评估 | `scripts/eval_retrieval_full.py` | NDCG+Hit+MRR多维度，分层指标(Layer1-4) |
+| RAG检索评估 | `scripts/eval_retrieval_full.py` | Hit+MRR+Precision/Recall，分层指标(Layer1-4) |
+| RAG回答质量评估 | `scripts/eval_answer_quality.py` | LLM-as-Judge，Faithfulness 4.8/5，幻觉率<1% |
 | 路由V2评估 | `scripts/eval_routing_v2.py` | 300条场景矩阵，分布RAG:Agent:Boundary≈60:30:10 |
 
 ---
@@ -127,7 +128,8 @@ chang_an_travel/
 │   ├── tests/                     # pytest 测试 (70+ 用例)
 │   │   └── routing/               # 🆕 路由测试套件
 │   └── scripts/                   # 工具脚本 (建库/评估)
-│       ├── eval_retrieval_full.py  # 🧪 RAG检索质量专业评估（NDCG+Hit+MRR）
+│       ├── eval_retrieval_full.py  # 🧪 RAG检索质量专业评估（Hit@3=90.5%）
+│       ├── eval_answer_quality.py  # 🧪 RAG回答质量评估（Faithfulness 4.8/5，幻觉率<1%）
 │       └── eval_routing_v2.py     # 🧪 路由准确率V2评估（300条场景矩阵）
 │
 └── chang_an_backend/              # Java 后端 + nginx
@@ -227,23 +229,37 @@ open http://localhost:8080
 
 **Pipeline 流程**：
 ```
-用户问题 → 多轮改写 → Embedding(30s超时) → Milvus召回(Top8) → 重排(Top4) → LLM流式生成 → SSE输出
+用户问题 → 多轮改写 → Embedding(30s超时) → Milvus召回(Top8) → 重排序MMR去重(Top4) → 相似度阈值兜底 → LLM流式生成 → SSE输出
 ```
 
 **防幻觉三板斧**：
-- Prompt 强制「知识库没有就明说」
-- Score < 0.35 阈值兜底（走 Fallback）
-- 引用标注 [1][2]（可点击跳转原文）
+- Prompt 铁律「只准用知识库、不准补全、每条事实带 [n] 引用」
+- Milvus COSINE 相似度阈值兜底（独立于重排分，避免量纲误杀）
+- 召回阶段预过滤噪声（rag_recall_min_score，P5 分位）
 
-**当前实现**：手搓RAG（93行代码，纯Python生成器，零框架依赖）
+**两轮迭代优化效果**：
+
+| 指标 | 优化前 | 优化后 | 目标 |
+|------|--------|--------|------|
+| Fallback 率 | 60.8% | **24.3%** | ≤20% |
+| Faithfulness | 2.9/5 | **4.8/5** | ≥4.0 |
+| 幻觉率 | 8.1% | **<1%** | ≤5% |
+| 引用准确率 | — | **100%** (298/298) | ≥80% |
+| Hit@3 | 90.5% | **90.5%** | ≥90% |
+
+**当前实现**：手搓RAG（93行核心代码，纯Python生成器，零框架依赖）
 
 **质量评估体系**：
 ```bash
-# 运行专业检索评估（NDCG+Hit+MRR 多维度分析）
+# 检索质量评估（Hit+MRR+Precision/Recall 多维度）
 python scripts/eval_retrieval_full.py
 
-# 输出文件：scripts/eval_retrieval_full.txt
-# 包含：分层指标(Layer1-4)、边界检测、重排效果对比
+# 回答质量评估（LLM-as-Judge: Faithfulness + Relevance + 引用校验）
+python scripts/eval_answer_quality.py
+
+# 输出示例
+# 检索: Hit@3=90.5%, Precision@4=0.51, MRR=0.831
+# 回答: Faithfulness 4.8/5, 幻觉率<1%, 引用准确率 100%
 ```
 
 
@@ -284,6 +300,18 @@ python scripts/eval_retrieval_full.py
 > 生产环境完整压测报告将在部署后补充。
 
 ### ✅ 已验证数据（有测试支撑）
+
+**RAG 检索与回答质量**：
+
+| 指标 | 数值 | 说明 |
+|------|------|------|
+| **Hit@3** | **90.5%** | bge-m3 + 重排序，94条分层测试用例 |
+| **Faithfulness** | **4.8/5** | LLM-as-Judge 打分，强约束 Prompt |
+| **幻觉率** | **<1%** | 94条用例中仅 0 条幻觉（测试集） |
+| **引用准确率** | **100%** | 298/298 条引用标注全部有效 |
+| **Fallback 率** | **24.3%** | 未达标查询走兜底话术（优化前 60.8%） |
+
+**路由系统**：
 
 | 指标 | 数值 | 数据来源 |
 |------|------|----------|
@@ -381,14 +409,16 @@ pytest tests/routing/test_routing_monitor.py -v     # 路由监控测试
 pytest tests/unit/test_rag_service.py -v  # RAG服务单元测试
 
 # 🆕 运行专业评估脚本
-python scripts/eval_retrieval_full.py     # RAG检索质量评估（NDCG+Hit+MRR）
+python scripts/eval_retrieval_full.py     # RAG检索质量评估（Hit@3=90.5%）
+python scripts/eval_answer_quality.py     # RAG回答质量评估（Faithfulness 4.8/5，幻觉率<1%）
 python scripts/eval_routing_v2.py         # 路由准确率V2评估（300条场景矩阵用例）
 ```
 
 **测试覆盖**：
 - **单元测试**：70+ 测试用例，包含简化版路由、路由监控、RAG、重排、Embedding、Java客户端等模块
 - **专业评估**：
-  - `eval_retrieval_full.py`：多相关文档 ground truth、分层指标(Layer1-4)、边界拒答校准
+  - `eval_retrieval_full.py`：多相关文档 ground truth、分层指标(Layer1-4)、边界拒答校准，Hit@3=90.5%
+  - `eval_answer_quality.py`：LLM-as-Judge 打分 Faithfulness/Relevance + 程序化引用校验，Faithfulness 4.8/5，幻觉率<1%
   - `eval_routing_v2.py`：300条自动生成测试用例，分布 RAG:Agent:Boundary ≈ 60:30:10
 
 **Mock 策略**：Fake LLM / Fake Embedding / respx HTTP Mock（避免调用真实 API）

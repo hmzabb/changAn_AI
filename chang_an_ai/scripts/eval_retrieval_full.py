@@ -75,6 +75,10 @@ class LayerMetrics:
     rr_sum_rerank: float = 0.0
     ndcg_sum: float = 0.0
     ndcg_sum_rerank: float = 0.0
+    precision_sum: float = 0.0
+    precision_sum_rerank: float = 0.0
+    recall_sum: float = 0.0
+    recall_sum_rerank: float = 0.0
     latency_ms: list[float] = field(default_factory=list)
 
 
@@ -359,6 +363,37 @@ def _ndcg_at_k(relevant: list[str], retrieved: list[str], k: int) -> float:
     return dcg / dcg_id
 
 
+def _precision_at_k(relevant: list[str], retrieved: list[str], k: int) -> float:
+    """Precision@K：检索到的 K 条中，相关文档占比。
+
+    与 Hit@K 互补——Hit 问"找没找到"，Precision 问"找到的里面有多少有用信息"。
+    如果 top-3 有 1 条命中但另 2 条是噪声，Hit@3=100% 但 Precision@3=33%。
+    """
+    if k <= 0:
+        return 0.0
+    rel_set = set(relevant)
+    return sum(1 for doc in retrieved[:k] if doc in rel_set) / k
+
+
+def _recall_at_k(relevant: list[str], retrieved: list[str], k: int) -> float:
+    """Recall@K：所有相关文档中，检索到的比例。
+
+    用户 query 可能需要多篇文档才能完整回答（如"从钟楼到大雁塔怎么走"
+    需要交通指南+景点信息），Recall@K 衡量系统是否把这些都找出来了。
+    """
+    if not relevant:
+        return 0.0
+    rel_set = set(relevant)
+    return sum(1 for doc in retrieved[:k] if doc in rel_set) / len(rel_set)
+
+
+def _f1_at_k(precision: float, recall: float) -> float:
+    """F1@K：精确率与召回率的调和平均，综合评价检索质量。"""
+    if precision + recall == 0:
+        return 0.0
+    return 2 * precision * recall / (precision + recall)
+
+
 def _evaluate_layer(results: list[QueryResult], top_k: int) -> dict[int, LayerMetrics]:
     """对一层的结果计算所有指标。"""
     layer_map: dict[int, list[QueryResult]] = defaultdict(list)
@@ -397,6 +432,11 @@ def _evaluate_layer(results: list[QueryResult], top_k: int) -> dict[int, LayerMe
             # NDCG (all positions)
             m.ndcg_sum += _ndcg_at_k(r.expected, r.raw_docs, top_k)
             m.ndcg_sum_rerank += _ndcg_at_k(r.expected, r.reranked_docs, top_k)
+            # Precision / Recall / F1 @K
+            m.precision_sum += _precision_at_k(r.expected, r.raw_docs, top_k)
+            m.precision_sum_rerank += _precision_at_k(r.expected, r.reranked_docs, top_k)
+            m.recall_sum += _recall_at_k(r.expected, r.raw_docs, top_k)
+            m.recall_sum_rerank += _recall_at_k(r.expected, r.reranked_docs, top_k)
             m.latency_ms.append(r.latency_ms)
         metrics[layer] = m
     return metrics
@@ -416,6 +456,10 @@ def _overall_metrics(layers: dict[int, LayerMetrics]) -> LayerMetrics:
         m.rr_sum_rerank += lm.rr_sum_rerank
         m.ndcg_sum += lm.ndcg_sum
         m.ndcg_sum_rerank += lm.ndcg_sum_rerank
+        m.precision_sum += lm.precision_sum
+        m.precision_sum_rerank += lm.precision_sum_rerank
+        m.recall_sum += lm.recall_sum
+        m.recall_sum_rerank += lm.recall_sum_rerank
         m.latency_ms.extend(lm.latency_ms)
     return m
 
@@ -468,6 +512,12 @@ for layer in [1, 2, 3, 4]:
         f"{'+' if m.rr_sum_rerank >= m.rr_sum else ''}{abs(m.rr_sum_rerank - m.rr_sum):.3f}")
     log(f"  {'NDCG@4':>12} {m.ndcg_sum / m.count:.3f}       {m.ndcg_sum_rerank / m.count:.3f}       "
         f"{'+' if m.ndcg_sum_rerank >= m.ndcg_sum else ''}{abs(m.ndcg_sum_rerank - m.ndcg_sum):.3f}")
+    log(f"  {'Prec@4':>12} {m.precision_sum / m.count:.3f}       {m.precision_sum_rerank / m.count:.3f}       "
+        f"{'+' if m.precision_sum_rerank >= m.precision_sum else ''}{abs(m.precision_sum_rerank - m.precision_sum):.3f}")
+    log(f"  {'Recall@4':>12} {m.recall_sum / m.count:.3f}       {m.recall_sum_rerank / m.count:.3f}       "
+        f"{'+' if m.recall_sum_rerank >= m.recall_sum else ''}{abs(m.recall_sum_rerank - m.recall_sum):.3f}")
+    log(f"  {'F1@4':>12} {_f1_at_k(m.precision_sum / m.count, m.recall_sum / m.count):.3f}       "
+        f"{_f1_at_k(m.precision_sum_rerank / m.count, m.recall_sum_rerank / m.count):.3f}")
     latencies = sorted(m.latency_ms)
     log(f"  {'Latency':>12} p50={latencies[len(latencies)//2]:.0f}ms  p95={latencies[int(len(latencies)*0.95)]:.0f}ms")
 
@@ -486,6 +536,12 @@ log(f"  {'MRR':>12} {overall.rr_sum / overall.count:.3f}       {overall.rr_sum_r
     f"{'+' if overall.rr_sum_rerank >= overall.rr_sum else ''}{abs(overall.rr_sum_rerank - overall.rr_sum):.3f}")
 log(f"  {'NDCG@4':>12} {overall.ndcg_sum / overall.count:.3f}       {overall.ndcg_sum_rerank / overall.count:.3f}       "
     f"{'+' if overall.ndcg_sum_rerank >= overall.ndcg_sum else ''}{abs(overall.ndcg_sum_rerank - overall.ndcg_sum):.3f}")
+log(f"  {'Prec@4':>12} {overall.precision_sum / overall.count:.3f}       {overall.precision_sum_rerank / overall.count:.3f}       "
+    f"{'+' if overall.precision_sum_rerank >= overall.precision_sum else ''}{abs(overall.precision_sum_rerank - overall.precision_sum):.3f}")
+log(f"  {'Recall@4':>12} {overall.recall_sum / overall.count:.3f}       {overall.recall_sum_rerank / overall.count:.3f}       "
+    f"{'+' if overall.recall_sum_rerank >= overall.recall_sum else ''}{abs(overall.recall_sum_rerank - overall.recall_sum):.3f}")
+log(f"  {'F1@4':>12} {_f1_at_k(overall.precision_sum / overall.count, overall.recall_sum / overall.count):.3f}       "
+    f"{_f1_at_k(overall.precision_sum_rerank / overall.count, overall.recall_sum_rerank / overall.count):.3f}")
 
 # ── 边界拒答 ──
 boundary_results = [r for r in results if r.is_boundary]

@@ -36,7 +36,8 @@ class Settings(BaseSettings):
     # ---- RAG 参数 ----
     rag_recall_top_k: int = 8
     rag_rerank_top_k: int = 4
-    rag_min_score: float = 0.35
+    rag_min_score: float = 0.30
+    rag_recall_min_score: float = 0.45  # 原始召回最低相似度(P5分位)，过滤明显噪声
     rag_max_context_chars: int = 6000
 
     # ---- Milvus 向量库（Docker standalone，gRPC 19530 / HTTP 9091）----
