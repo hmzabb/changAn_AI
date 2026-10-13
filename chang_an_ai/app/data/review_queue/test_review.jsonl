@@ -1,0 +1,2 @@
+{"file": "test.md", "format": "md", "chunk_index": 0, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（17 字符），可能不含完整信息"], "sample": "大雁塔位于西安市南郊，是唐代建筑。"}
+{"file": "test.pdf", "format": "pdf", "chunk_index": 1, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（19 字符），可能不含完整信息"], "sample": "西安城墙是中国现存规模最大的古代城垣。"}

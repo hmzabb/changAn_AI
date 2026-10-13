@@ -1,0 +1,7 @@
+{"file": "华清宫与骊山.docx", "format": "docx", "chunk_index": 0, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（6 字符），可能不含完整信息"], "sample": "华清宫与骊山"}
+{"file": "华清宫与骊山.docx", "format": "docx", "chunk_index": 2, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（4 字符），可能不含完整信息"], "sample": "历史沿革"}
+{"file": "华清宫与骊山.docx", "format": "docx", "chunk_index": 4, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（4 字符），可能不含完整信息"], "sample": "主要景点"}
+{"file": "华清宫与骊山.docx", "format": "docx", "chunk_index": 6, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（4 字符），可能不含完整信息"], "sample": "演出推荐"}
+{"file": "华清宫与骊山.docx", "format": "docx", "chunk_index": 8, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（7 字符），可能不含完整信息"], "sample": "门票与开放时间"}
+{"file": "华清宫与骊山.docx", "format": "docx", "chunk_index": 9, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（14 字符），可能不含完整信息"], "sample": "以上信息以景区当日公告为准。"}
+{"file": "华清宫与骊山.docx", "format": "docx", "chunk_index": 10, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（4 字符），可能不含完整信息"], "sample": "交通指南"}

@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     siliconflow_base_url: str = "https://api.siliconflow.cn/v1"
     embedding_model: str = "BAAI/bge-m3"
 
+    # ---- 评分模型（RAGAS evaluator，跨家族：Qwen 评 DeepSeek，避免自评偏差）----
+    # 阿里云百炼 DashScope（OpenAI 兼容协议）
+    qwen_eval_api_key: str = ""
+    qwen_eval_base_url: str = "https://ws-5trhkwz426cq0en9.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
+    qwen_eval_model: str = "qwen3.7-plus"
+
     # ---- 重排（硅基流动 bge-reranker-v2-m3，免费 API）----
     rerank_enabled: bool = True
     rerank_model: str = "BAAI/bge-reranker-v2-m3"
@@ -36,12 +42,13 @@ class Settings(BaseSettings):
     # ---- RAG 参数 ----
     rag_recall_top_k: int = 8
     rag_rerank_top_k: int = 4
-    rag_min_score: float = 0.30
+    rag_min_score: float = 0.45
     rag_recall_min_score: float = 0.45  # 原始召回最低相似度(P5分位)，过滤明显噪声
     rag_max_context_chars: int = 6000
 
-    # ---- Milvus 向量库（Docker standalone，gRPC 19530 / HTTP 9091）----
-    milvus_uri: str = "http://127.0.0.1:19530"
+    # ---- Milvus 向量库（Docker standalone，gRPC 19530 / HTTP 9091）
+    # pymilvus 3.x 要求带协议前缀：gRPC 用 tcp://，HTTP 用 http://
+    milvus_uri: str = "tcp://127.0.0.1:19530"
 
     # ---- Redis（Java 端已有 127.0.0.1:6379，复用即可）----
     redis_url: str = "redis://127.0.0.1:6379/0"

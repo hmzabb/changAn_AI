@@ -89,7 +89,7 @@ class ToolCache:
         """
         # 容量检查：如果已满，删除最旧的条目
         if len(self._cache) >= self.max_size and key not in self._cache:
-            oldest_key = min(self._cache.keys(), k=lambda k: self._cache[k][0])
+            oldest_key = min(self._cache, key=lambda k: self._cache[k][0])
             del self._cache[oldest_key]
             logger.debug(f"[Cache] 淘汰最旧条目: {oldest_key[:50]}...")
 
@@ -192,14 +192,26 @@ def cached_tool(cache: ToolCache, tool_name: str):
             # 尝试从缓存获取
             result = cache.get(cache_key)
             if result is not None:
+                logger.debug(f"[Cache DEBUG] HIT {tool_name} key={cache_key[:12]}...")
                 return result
 
             # 缓存未命中：执行原函数
             result = func(*args, **kwargs)
 
             # 写入缓存（仅成功结果）
-            if result and not json.loads(result).get("error"):
-                cache.set(cache_key, result)
+            if not result:
+                logger.warning(f"[Cache DEBUG] SKIP_SET result falsy: {tool_name}")
+            else:
+                try:
+                    parsed = json.loads(result)
+                    is_error = isinstance(parsed, dict) and parsed.get("error")
+                    if is_error:
+                        logger.warning(f"[Cache DEBUG] SKIP_SET is_error: {tool_name} msg={parsed.get('error', '')[:60]}")
+                    else:
+                        cache.set(cache_key, result)
+                        logger.debug(f"[Cache DEBUG] SET {tool_name} key={cache_key[:12]}... size={len(cache._cache)}")
+                except json.JSONDecodeError as e:
+                    logger.warning(f"[Cache DEBUG] SKIP_SET JSON error: {tool_name} {e}")
 
             return result
 

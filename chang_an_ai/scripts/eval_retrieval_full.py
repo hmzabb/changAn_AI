@@ -36,15 +36,9 @@ OUTPUT.write_text("", encoding="utf-8")
 
 
 # ============================================================
-# Data Structures
+# Data Structures & QA Pairs
 # ============================================================
-@dataclass
-class QAPair:
-    query: str
-    relevant_docs: list[str]   # 多相关文档（优先顺序）
-    layer: int                 # 1=核心事实 2=基础补全 3=进阶推理 4=鲁棒性
-    is_boundary: bool = False  # 边界/无关 query（expected=None）
-
+from scripts.qa_pairs import QAPair, QA_PAIRS
 
 @dataclass
 class QueryResult:
@@ -186,6 +180,34 @@ QA_PAIRS: list[QAPair] = [
     QAPair("陕历博咋约",             ["西安景点门票与开放时间"], 4),
     QAPair("西安下雪吗",             ["西安天气与穿衣指南"], 4),
     QAPair("华山门票学生能便宜不",   ["西安景点门票与开放时间", "华山"], 4),
+    # ── 新增：PDF/Word 语料覆盖（23 条）──
+    # Layer 1: 核心事实
+    QAPair("华清宫门票多少钱",       ["华清宫与骊山", "华清宫"], 1),
+    QAPair("华清宫和骊山是一个景区吗", ["华清宫与骊山"], 1),
+    QAPair("碑林博物馆门票多少",     ["西安碑林博物馆", "碑林博物馆"], 1),
+    QAPair("碑林有什么镇馆之宝",     ["西安碑林博物馆", "碑林博物馆"], 1),
+    QAPair("兵马俑有几个坑可以看",   ["兵马俑参观指南", "兵马俑"], 1),
+    QAPair("兵马俑一号坑有多大",     ["兵马俑参观指南", "兵马俑"], 1),
+    QAPair("羊肉泡馍多少钱一碗",     ["西安面食地图", "西安面食大全", "回民街美食推荐"], 1),
+    QAPair("biangbiang面怎么念",     ["西安面食地图", "西安面食大全"], 1),
+    QAPair("回民街什么最值得吃",     ["回民街美食推荐", "回民街美食指南"], 1),
+    QAPair("西安三日游人均花费多少", ["西安三日游详细行程", "西安三日游经典路线"], 1),
+    # Layer 2: 基础补全
+    QAPair("华清宫长恨歌演出值得看吗", ["华清宫与骊山"], 2),
+    QAPair("长恨歌在哪看怎么买票",   ["华清宫与骊山"], 2),
+    QAPair("碑林博物馆在哪怎么去",   ["西安碑林博物馆", "碑林博物馆"], 2),
+    QAPair("兵马俑参观顺序怎么安排", ["兵马俑参观指南"], 2),
+    QAPair("兵马俑需要请导游讲解吗", ["兵马俑参观指南", "兵马俑"], 2),
+    QAPair("回民街洒金桥有什么好吃的", ["回民街美食推荐", "回民街美食指南"], 2),
+    QAPair("回民街和洒金桥什么关系", ["回民街美食推荐"], 2),
+    # Layer 3: 进阶推理
+    QAPair("华清宫和兵马俑能一天玩完吗", ["华清宫与骊山", "兵马俑参观指南", "西安三日游详细行程"], 3),
+    QAPair("碑林和城墙能联票吗",     ["西安碑林博物馆", "西安景点门票与开放时间总览"], 3),
+    QAPair("面食和小吃有什么区别",   ["西安面食地图", "西安小吃图鉴"], 3),
+    QAPair("三日游预算2000够吗",     ["西安三日游详细行程", "西安交通与住宿指南"], 3),
+    # Layer 4: 鲁棒性
+    QAPair("华清池门票（口语化错误）", ["华清宫与骊山", "华清宫"], 4),
+    QAPair("美食街哪条最好逛",       ["回民街美食推荐", "回民街美食指南", "西安面食地图"], 4),
 
     # ── Boundary Cases（20 条：严格无关 query）──
     QAPair("北京故宫门票多少钱",       [], 4, is_boundary=True),
@@ -249,7 +271,7 @@ from app.services.embedding import get_embedding_client
 
 store = get_store()
 embedder = get_embedding_client()
-chunks = load_corpus_chunks()
+chunks, _quality_reports = load_corpus_chunks()
 log(f"Loaded {len(chunks)} chunks from corpus")
 
 all_embeddings = []

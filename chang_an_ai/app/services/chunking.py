@@ -85,6 +85,51 @@ def chunk_markdown(md_text: str, doc_title: str, file_name: str = "") -> list[Ch
     return chunks
 
 
+# ==================== 纯文本分块（PDF/Word 等无 Markdown 标题结构的文档） ====================
+
+def chunk_plain_text(text: str, doc_title: str, file_name: str = "") -> list[Chunk]:
+    """纯文本 → 若干 Chunk。按段落（空行）切分，超长段复用 _split_long 续切。
+
+    PDF/Word 文档没有 Markdown 的 ## 标题结构，改为按段落语义边界切分。
+    段落间以连续空行分隔，保留原文的语义分组。
+    """
+    chunks: list[Chunk] = []
+    paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+    part = 0
+    for para in paragraphs:
+        if len(para) > CHUNK_MAX:
+            pieces = _split_long(para)
+            for piece in pieces:
+                chunks.append(
+                    Chunk(
+                        text=piece,
+                        metadata={
+                            "source": "corpus",
+                            "doc": doc_title,
+                            "file": file_name,
+                            "section": "正文",
+                            "part": part,
+                        },
+                    )
+                )
+                part += 1
+        else:
+            chunks.append(
+                Chunk(
+                    text=para,
+                    metadata={
+                        "source": "corpus",
+                        "doc": doc_title,
+                        "file": file_name,
+                        "section": "正文",
+                        "part": part,
+                    },
+                )
+            )
+            part += 1
+    return chunks
+
+
 # ==================== 结构化数据模板（一条记录 = 一个 chunk） ====================
 
 def _score_text(score) -> str:

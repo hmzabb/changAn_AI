@@ -1,0 +1,4 @@
+{"file": "西安面食地图.docx", "format": "docx", "chunk_index": 0, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（6 字符），可能不含完整信息"], "sample": "西安面食地图"}
+{"file": "西安面食地图.docx", "format": "docx", "chunk_index": 2, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（11 字符），可能不含完整信息"], "sample": "面条江湖：十大经典面食"}
+{"file": "西安面食地图.docx", "format": "docx", "chunk_index": 4, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（6 字符），可能不含完整信息"], "sample": "经典面食一览"}
+{"file": "西安面食地图.docx", "format": "docx", "chunk_index": 6, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（4 字符），可能不含完整信息"], "sample": "吃面学问"}

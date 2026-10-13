@@ -23,9 +23,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.services.llm import chat_sync
 from app.services.rag_service import answer as rag_answer, retrieve, _build_context
-from scripts.eval_retrieval_full import QA_PAIRS
+from scripts.qa_pairs import QA_PAIRS, QAPair
 
-OUTPUT = Path(__file__).with_suffix(".txt")
+OUTPUT = Path(__file__).with_name(f"eval_answer_quality_{int(time.time())}.txt")
 _PAD = "=" * 64
 
 

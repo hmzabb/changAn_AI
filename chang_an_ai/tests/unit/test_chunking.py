@@ -2,6 +2,7 @@
 from app.services.chunking import (
     blog_to_text,
     chunk_markdown,
+    chunk_plain_text,
     shop_to_text,
     voucher_to_text,
 )
@@ -50,3 +51,49 @@ def test_voucher_to_text_stock_states():
     assert "库存10张" in voucher_to_text(v, "某店")
     v["payValue"] = 0
     assert "免费领取" in voucher_to_text(v, "某店")
+
+
+# ==================== chunk_plain_text 测试（PDF/Word 用） ====================
+
+def test_plain_text_split_by_paragraphs():
+    """空行分隔的段落各自成为一个 chunk。"""
+    text = "第一段内容。\n\n第二段内容。\n\n第三段内容。"
+    chunks = chunk_plain_text(text, doc_title="测试", file_name="t.docx")
+    assert len(chunks) == 3
+    assert [c.metadata["section"] for c in chunks] == ["正文", "正文", "正文"]
+    assert all(c.metadata["source"] == "corpus" for c in chunks)
+    assert all(c.metadata["doc"] == "测试" for c in chunks)
+    assert chunks[1].metadata["part"] == 1
+
+
+def test_plain_text_long_paragraph_split():
+    """超长段落应被 _split_long 续切。"""
+    long_para = "这是一句很长的话。" * 80  # ~800 字, 超过 CHUNK_MAX=600
+    text = f"短段落。\n\n{long_para}"
+    chunks = chunk_plain_text(text, doc_title="长文", file_name="long.pdf")
+    # 短段落 1 个 + 长段落至少切 2 个
+    assert len(chunks) >= 3
+    assert all(c.metadata["source"] == "corpus" for c in chunks)
+    assert all(len(c.text) <= 720 for c in chunks)  # CHUNK_MAX + OVERLAP 余量
+
+
+def test_plain_text_empty_input():
+    """空文本返回空列表。"""
+    assert chunk_plain_text("", doc_title="空", file_name="e.pdf") == []
+    assert chunk_plain_text("\n\n\n", doc_title="空", file_name="e.pdf") == []
+
+
+def test_plain_text_single_paragraph():
+    """单段落文本产生一个 chunk。"""
+    chunks = chunk_plain_text("只有一段话。", doc_title="单段", file_name="s.docx")
+    assert len(chunks) == 1
+    assert chunks[0].text == "只有一段话。"
+    assert chunks[0].metadata["file"] == "s.docx"
+
+
+def test_plain_text_trim_whitespace():
+    """段落前后空白应被 strip。"""
+    text = "  前面有空格  \n\n  后面也有  "
+    chunks = chunk_plain_text(text, doc_title="空格", file_name="w.pdf")
+    assert chunks[0].text == "前面有空格"
+    assert chunks[1].text == "后面也有"

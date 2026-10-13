@@ -1,0 +1,5 @@
+{"file": "西安交通与住宿指南.docx", "format": "docx", "chunk_index": 0, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（9 字符），可能不含完整信息"], "sample": "西安交通与住宿指南"}
+{"file": "西安交通与住宿指南.docx", "format": "docx", "chunk_index": 2, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（4 字符），可能不含完整信息"], "sample": "抵达西安"}
+{"file": "西安交通与住宿指南.docx", "format": "docx", "chunk_index": 4, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（8 字符），可能不含完整信息"], "sample": "市内交通方式对比"}
+{"file": "西安交通与住宿指南.docx", "format": "docx", "chunk_index": 5, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（6 字符），可能不含完整信息"], "sample": "住宿区域推荐"}
+{"file": "西安交通与住宿指南.docx", "format": "docx", "chunk_index": 7, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（6 字符），可能不含完整信息"], "sample": "住宿预算对比"}

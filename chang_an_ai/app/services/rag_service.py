@@ -1,11 +1,12 @@
-"""RAG 问答编排：改写 → 检索 → 重排 → 阈值判断 → 拼 prompt → 流式生成。"""
+"""RAG 问答编排：前置判别 → 改写 → 检索 → 重排 → 阈值判断 → 拼 prompt → 流式生成。"""
 from __future__ import annotations
 
 from app.config import settings
+from app.prompts.guard import GUARD_SYSTEM, GUARD_USER_TEMPLATE, OOD_REJECTION
 from app.prompts.rag import FALLBACK_ANSWER, RAG_SYSTEM, RAG_USER_TEMPLATE
 from app.repositories.vector_store import get_store
 from app.services.embedding import get_embedding_client
-from app.services.llm import chat_stream
+from app.services.llm import chat_stream, chat_sync
 from app.services.query_rewrite import rewrite
 from app.services.reranker import rerank
 
@@ -66,8 +67,12 @@ def _build_sources(hits: list[dict]) -> list[dict]:
 def answer(query: str, history: list[dict]):
     """流式回答：生成 (event, payload) 序列。
 
-    事件序列：status("正在检索") → sources / status("生成中") → delta* → done。
-    比之前多一个 status 事件：前端收到后更新进度文案，用户不会觉得"卡死了"。
+    事件序列：前置判别 → status("正在检索") → sources / status("生成中") → delta* → done。
+
+    前置判别（LLM 领域守卫）：
+    - 用 DeepSeek-chat 做一次轻量分类（temperature=0, max_tokens=5, timeout=5s），
+      判断查询是否属于「西安文旅」范畴，非领域查询直接礼貌拒答，跳过后续 RAG 管线；
+    - 分类失败时降级放行（宁可漏判也不阻塞正常问答），成本约 ¥0.0002/条。
 
     防幻觉三板斧：
     1. prompt 强制"没有就明说" + [n] 引用标注（RAG_SYSTEM）；
@@ -77,6 +82,29 @@ def answer(query: str, history: list[dict]):
 
     检索用改写后的 query（指代还原），生成用用户原话（保留语气和意图）。
     """
+    # ── LLM 前端判别：拦截非西安文旅查询 ──
+    yield ("status", "正在分析问题…")
+    try:
+        resp = chat_sync(
+            [
+                {"role": "system", "content": GUARD_SYSTEM},
+                {"role": "user", "content": GUARD_USER_TEMPLATE.format(query=query)},
+            ],
+            temperature=0,
+            max_tokens=5,
+            timeout=5.0,
+        )
+        is_in_domain = resp.strip() and resp.strip()[0] == "是"
+    except Exception:
+        # 分类失败（网络抖动/API异常）→ 降级放行，不阻塞正常问答
+        is_in_domain = True
+
+    if not is_in_domain:
+        yield ("sources", [])
+        yield ("delta", OOD_REJECTION)
+        yield ("done", None)
+        return
+
     yield ("status", "正在检索知识库…")
     search_query = rewrite(query, history)
     hits = retrieve(search_query)

@@ -1,0 +1,5 @@
+{"file": "西安碑林博物馆.docx", "format": "docx", "chunk_index": 0, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（7 字符），可能不含完整信息"], "sample": "西安碑林博物馆"}
+{"file": "西安碑林博物馆.docx", "format": "docx", "chunk_index": 2, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（4 字符），可能不含完整信息"], "sample": "馆藏亮点"}
+{"file": "西安碑林博物馆.docx", "format": "docx", "chunk_index": 4, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（4 字符），可能不含完整信息"], "sample": "参观信息"}
+{"file": "西安碑林博物馆.docx", "format": "docx", "chunk_index": 6, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（6 字符），可能不含完整信息"], "sample": "门票价格一览"}
+{"file": "西安碑林博物馆.docx", "format": "docx", "chunk_index": 8, "overall_score": 0.35, "text_health": 0.35, "has_tables": false, "table_score": null, "issues": ["过短（4 字符），可能不含完整信息"], "sample": "交通指南"}

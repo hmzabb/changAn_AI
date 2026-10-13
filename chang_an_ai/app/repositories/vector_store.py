@@ -56,12 +56,19 @@ class VectorStore:
             if not _EXPECTED_FIELDS <= fields:  # 如果期望的字段有缺失 → 重建
                 self._client.drop_collection(COLLECTION_NAME)
             else:
-                state_info = self._client.get_load_state(COLLECTION_NAME)
-                state = state_info["state"]
-                if state == LoadState.NotLoad:
-                    self._client.load_collection(COLLECTION_NAME)
-                # Loading 状态：不轮询等待（Milvus 内部段损坏时 get_load_state
-                # 可能卡死），由上层 query() 的检索失败兜底
+                # get_load_state 在 Loading 状态下可能阻塞，用线程超时保护
+                from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+
+                try:
+                    with ThreadPoolExecutor(max_workers=1) as executor:
+                        future = executor.submit(self._client.get_load_state, COLLECTION_NAME)
+                        state_info = future.result(timeout=5)
+                except (FutureTimeoutError, Exception) as e:
+                    logging.warning("get_load_state failed (collection may be loading): %s", e)
+                else:
+                    state = state_info["state"]
+                    if state == LoadState.NotLoad:
+                        self._client.load_collection(COLLECTION_NAME)
                 return
 
         schema = MilvusClient.create_schema(auto_id=False, enable_dynamic_field=False)
