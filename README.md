@@ -40,110 +40,14 @@
 
 ## 🏗 系统架构
 
-```mermaid
-graph LR
-    %% ═══════════════════════════════════════════════════════════════
-    %%  样式定义（参考互联网大厂架构图配色方案）
-    %% ═══════════════════════════════════════════════════════════════
-    classDef user fill:#FFFFFF,stroke:#000000,stroke-width:2px,color:#000000
-    classDef frontend fill:#E3F2FD,stroke:#1565C0,stroke-width:2px,color:#0D47A1
-    classDef cdn fill:#FFF9C4,stroke:#F57F17,stroke-width:2px,color:#F57F17
-    classDef gateway fill:#FFCCBC,stroke:#E64A19,stroke-width:2px,color:#BF360C
-    classDef javaApp fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px,color:#1B5E20
-    classDef pythonApp fill:#E1BEE7,stroke:#7B1FA2,stroke-width:2px,color:#4A148C
-    classDef middleware fill:#FFE0B2,stroke:#EF6C00,stroke-width:2px,color:#E65100
-    classDef cache fill:#A5D6A7,stroke:#388E3C,stroke-width:2px,color:#1B5E20
-    classDef db fill:#FFCDD2,stroke:#C62828,stroke-width:2px,color:#B71C1C
-    classDef vectorDb fill:#F8BBD9,stroke:#AD1457,stroke-width:2px,color:#880E4F
-    classDef mq fill:#B39DDB,stroke:#512DA8,stroke-width:2px,color:#311B92
-    classDef extAI fill:#CFD8DC,stroke:#546E7A,stroke-width:2px,color:#263238
-    classDef monitor fill:#E0E0E0,stroke:#616161,stroke-width:2px,color:#212121
-    classDef corpus fill:#FFF59D,stroke:#F9A825,stroke-width:2px,color:#F57F17
+<p align="center">
+  <img src="photos/架构图.png" alt="系统架构图" width="100%"/>
+</p>
 
-    %% ═══════════════════════════════════════════════════════════════
-    %%  第一层：用户接入层
-    %% ═══════════════════════════════════════════════════════════════
-    User(("👤 用户")) -->|https/http| FE["前端应用<br/>Vue3 / React<br/>H5 移动端"]
+<details>
+<summary><b>📖 点击展开架构设计说明</b></summary>
 
-    %% ═══════════════════════════════════════════════════════════════
-    %%  第二层：CDN & 负载均衡
-    %% ═══════════════════════════════════════════════════════════════
-    FE -->|静态资源| CDN["CDN<br/>云厂商提供<br/>JS/CSS/图片预热"]
-    FE -->|动态请求| LB["Nginx 1.18<br/>反向代理 + 负载均衡<br/>SSL 终结 + SSE 透传"]
-
-    %% ═══════════════════════════════════════════════════════════════
-    %%  第三层：网关 & 路由层
-    %% ═══════════════════════════════════════════════════════════════
-    LB -->|"/api/*" http| GW_Java["API 网关<br/>路由转发<br/>限流/熔断/降级"]
-    LB -->|"/api/ai/*" SSE| GW_AI["AI 网关<br/>关键词路由 &lt;1ms<br/>LLM 领域守卫"]
-
-    %% ═══════════════════════════════════════════════════════════════
-    %%  第四层：业务服务层（Java + Python 双栈）
-    %% ═══════════════════════════════════════════════════════════════
-    GW_Java -->|http 8081| JavaSvc["<b>Spring Boot 2.7.18</b><br/>店铺管理 / 优惠券 / 笔记 / 秒杀<br/>缓存三防: 穿透/击穿/雪崩<br/><i>Docker 容器化部署</i>"]
-
-    GW_AI -->|http 8000| PythonSvc["<b>FastAPI 0.115</b><br/>RAG 智能问答 / Agent 探店助手<br/>PDF 质量管线 / RAGAS 评测<br/><i>LangGraph + DeepSeek V4</i>"]
-
-    %% ═══════════════════════════════════════════════════════════════
-    %%  第五层：中间件层
-    %% ═══════════════════════════════════════════════════════════════
-    JavaSvc -->|JDBC| MySQL[("MySQL 8.0<br/>主从复制<br/>店铺/用户/订单")]
-    JavaSvc -->|Jedis| RedisCluster["Redis 7.x Cluster<br/>缓存 / Session / GEO / 分布式锁"]
-
-    PythonSvc -->|gRPC/TCP| Milvus[("Milvus 3.0<br/>向量数据库<br/>37篇 文档 Embedding<br/>索引：IVF_FLAT")]
-    PythonSvc -->|本地IO| Corpus["📚 本地语料库<br/>西安文旅文档 37 篇<br/>.md(13) .pdf(6) .docx(18)<br/>景点/美食/攻略"]
-
-    %% ═══════════════════════════════════════════════════════════════
-    %%  第六层：消息队列（异步解耦）
-    %% ═══════════════════════════════════════════════════════════════
-    JavaSvc -->|生产者| MQ["RocketMQ 5.3.0<br/>异步削峰 / 事件驱动<br/>优惠券发放 / 订单状态机"]
-    MQ -->|消费者| JavaSvc
-
-    %% ═══════════════════════════════════════════════════════════════
-    %%  第七层：外部 AI 服务
-    %% ═══════════════════════════════════════════════════════════════
-    PythonSvc -.->|HTTPS API| DeepSeek["DeepSeek API<br/>V4 Flash 对话<br/>Function Calling 工具调用"]
-    PythonSvc -.->|HTTPS API| SiliconFlow["SiliconFlow API<br/>bge-m3 Embedding<br/>bge-reranker 重排序"]
-    PythonSvc -.->|HTTPS API| DashScope["阿里云百炼 DashScope<br/>Qwen-Max 评估模型<br/>RAGAS 跨家族评分"]
-
-    %% ═══════════════════════════════════════════════════════════════
-    %%  第八层：服务间调用
-    %% ═══════════════════════════════════════════════════════════════
-    PythonSvc -->|httpx REST| JavaSvc
-
-    %% ═══════════════════════════════════════════════════════════════
-    %%  底部：运维监控 & 技术体系
-    %% ═══════════════════════════════════════════════════════════════
-    subgraph Monitor["📊 运维监控 & CI/CD"]
-        direction LR
-        PM["Prometheus<br/>指标采集 15s"]
-        GF["Grafana<br/>可视化看板 :3000"]
-        DK["Docker Compose<br/>容器编排"]
-        Git["Git 版本控制"]
-        CI["GitHub Actions<br/>自动化测试+部署"]
-    end
-
-    JavaSvc -.->|metrics| PM
-    PythonSvc -.->|metrics| PM
-    PM -->|数据源| GF
-
-    %% ═══════════════════════════════════════════════════════════════
-    %%  样式应用
-    %% ═══════════════════════════════════════════════════════════════
-    class User user
-    class FE frontend
-    class CDN cdn
-    class LB,GW_Java,GW_AI gateway
-    class JavaSvc javaApp
-    class PythonSvc pythonApp
-    class MQ middleware
-    class RedisCluster cache
-    class MySQL db
-    class Milvus vectorDb
-    class DeepSeek,SiliconFlow,DashScope extAI
-    class PM,GF,DK,Git,CI monitor
-    class Corpus corpus
-```
+### 🏗️ 架构设计说明
 
 ---
 
@@ -156,7 +60,7 @@ graph LR
 |---------|---------|
 | **前后端分离** | Vue3/React 前端 + Spring Boot/FastAPI 后端，Nginx 统一入口 |
 | **双语言协作** | Java 处理业务事务（ACID），Python 负责 AI 推理（GPU 加速） |
-| **异步解耦** | RocketMQ 削峰填谷，优惠券发放、订单状态机事件驱动 |
+| **异步解耦** | Redis Stream 削峰填谷，秒杀订单异步处理（消费者组 g1/c1）|
 | **读写分离** | MySQL 主从复制 + Redis 多级缓存（本地 + 分布式）|
 | **可观测性** | Prometheus 采集指标 + Grafana 可视化，15s 采集周期 |
 
@@ -189,7 +93,7 @@ graph LR
 ```bash
 # 后端服务（Java）
 cd chang_an_backend/chang_an_dianping
-docker-compose up -d          # Spring Boot + MySQL + Redis + RocketMQ
+docker-compose up -d          # Spring Boot + MySQL + Redis (含 Stream)
 
 # AI 服务（Python）
 cd chang_an_ai
@@ -208,7 +112,7 @@ docker-compose -f docker-compose.monitoring.yml up -d  # Prometheus :9090 + Graf
 | **AI 框架** | LangGraph / LangChain / DeepSeek-V4 |
 | **向量模型** | bge-m3 (Embedding) / bge-reranker-v2-m3 (重排序) |
 | **数据库** | MySQL 8.0 / Redis 7.x / Milvus 3.0 |
-| **消息队列** | RocketMQ 5.3.0 |
+| **消息队列** | Redis Stream (stream.orders) |
 | **容器化** | Docker / Docker Compose |
 | **监控** | Prometheus / Grafana |
 | **CI/CD** | GitHub Actions / Git |
@@ -231,6 +135,8 @@ docker-compose -f docker-compose.monitoring.yml up -d  # Prometheus :9090 + Graf
 - **质量闭环**：PDF 三段式管线（评估→修复→审核）+ RAGAS 跨家族自动评分
 - **性能优先**：关键词路由 <1ms + Agent 并行提速 40-65% + 工具调用结果缓存
 - **优雅降级**：守卫分类失败 → 放行（不阻塞）；Milvus Loading 卡死 → 超时 5s 跳过；PDF 解析异常 → 记日志继续
+
+</details>
 
 ---
 
@@ -515,7 +421,7 @@ PDF文件 → pdfplumber 结构化提取 → 质量检测(文本健康度+表格
 ### 6️⃣ Java 后端核心能力
 
 - **缓存三防**：布隆过滤器（穿透）+ 空值缓存（穿透）+ 逻辑过期（击穿）+ TTL随机化（雪崩）
-- **秒杀系统**：Lua 脚本原子扣库存 + Redis Stream 异步建单 + RocketMQ 预留
+- **秒杀系统**：Lua 脚本原子扣库存 + Redis Stream 异步建单（消费者组 g1/c1，阻塞 2s 轮询）+ Pending List 重试机制
 - **分布式锁**：Redisson RLock + Snowflake 全局唯一 ID
 - **用户认证**：双拦截器设计（RefreshToken + Login）+ ThreadLocal 传递
 
