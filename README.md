@@ -41,7 +41,7 @@
 ## 🏗 系统架构
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/hmzabb/changAn_AI/dev1/photos/架构图.png" alt="系统架构图" width="100%"/>
+  <img src="photos/architecture.png" alt="系统架构图" width="100%"/>
 </p>
 
 #### 数据流向（核心链路）
