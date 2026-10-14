@@ -9,6 +9,7 @@
 """
 from __future__ import annotations # 延迟类型注解求值，允许前向引用
 
+import logging
 import re # 正则：HTML 标签清洗、句子边界切分
 from dataclasses import dataclass, field
 
@@ -17,6 +18,86 @@ CHUNK_MAX = 600   # 超过此长度的小节续切
 OVERLAP = 120      # 续切时相邻块重叠字数，防止关键句被切断
 
 _HTML_TAG_RE = re.compile(r"<[^>]+>")  # 笔记 是markdown形式 是富文本（含 <br/> 等标签）
+
+logger = logging.getLogger(__name__)
+
+
+def _is_table_block(text: str) -> bool:
+    """检测文本块是否为表格（管道符分隔的多行结构）。
+
+    规则：
+      1. 连续 ≥2 行包含管道符（|）
+      2. 管道行数占总非空行数的 ≥50%
+      3. 不存在非管道、非空的"正文行"——防止"一段正文 + 表格 + 正文"
+         这种混合内容被误判为纯表格块（导致 _split_table_with_header
+         把普通文本当成表头拆分）
+
+    为什么加比例约束？防止"一段正文里恰好有两行含 |"的误判。
+    """
+    lines = [l for l in text.split("\n") if l.strip()]
+    if len(lines) < 2:
+        return False
+
+    pipe_lines = 0
+    consecutive = 0
+    max_consecutive = 0
+    for line in lines:
+        stripped = line.strip()
+        if stripped.count("|") >= 1:
+            pipe_lines += 1
+            consecutive += 1
+            max_consecutive = max(max_consecutive, consecutive)
+        else:
+            consecutive = 0
+
+    if max_consecutive < 2:
+        return False
+    if pipe_lines / len(lines) < 0.5:
+        return False
+    # 如果存在不含管道符的非空行，说明是混合内容（正文+表格），
+    # 不应走 _split_table_with_header（第一行可能不是表头）
+    if pipe_lines != len(lines):
+        return False
+    return True
+
+
+def _split_table_with_header(text: str) -> list[str]:
+    """对管道符表格做带表头重复的拆分，每块 ≤ CHUNK_MAX。
+
+    策略：第一行视为表头，后续数据行贪心装箱。每块都带上表头行，
+    保证每个 chunk 都是自包含的语义单元——检索时无论命中哪一块，
+    都能看到列名，embedding 也不会因文本过长而被稀释。
+
+    为什么不像普通文本那样用 overlap？表格的 overlap 语义不对——
+    上一块的尾部数据行带进下一块没有意义，表头才是真正需要的上下文。
+    """
+    lines = text.strip().split("\n")
+    header = lines[0]
+    data_lines = lines[1:]
+
+    header_len = len(header) + 1  # +1 for \n
+    if header_len >= CHUNK_MAX:
+        # 极端情况：表头本身就超长，不退化为整表返回（至少表头完整）
+        logger.warning("表格表头过长（%d 字符），整表作为一个 chunk 返回", header_len)
+        return [text]
+
+    blocks: list[str] = []
+    buf_lines: list[str] = [header]
+    buf_len = header_len
+
+    for row in data_lines:
+        row_len = len(row) + 1  # +1 for \n
+        if buf_len + row_len > CHUNK_MAX and len(buf_lines) > 1:
+            blocks.append("\n".join(buf_lines))
+            buf_lines = [header]
+            buf_len = header_len
+        buf_lines.append(row)
+        buf_len += row_len
+
+    if len(buf_lines) > 1:  # 至少有一行数据才输出
+        blocks.append("\n".join(buf_lines))
+
+    return blocks if blocks else [text]
 
 
 @dataclass
@@ -49,7 +130,20 @@ def _split_by_headings(md_text: str) -> list[tuple[str, str]]:
 
 def _split_long(text: str) -> list[str]:
     """超长文本按句子边界（句号/问号/感叹号/换行）切到 CHUNK_MAX 以内，
-    相邻块重叠 OVERLAP 字。先按句子切碎再贪心装箱，避免把句子拦腰截断。"""
+    相邻块重叠 OVERLAP 字。先按句子切碎再贪心装箱，避免把句子拦腰截断。
+
+    表格保护：若文本为管道符分隔的表格块，走 _split_table_with_header
+    做带表头重复的拆分——每块 ≤ CHUNK_MAX，且都带上表头行。
+    既保证检索精度（chunk 大小合理），又保证语义完整（列名不丢失）。
+    """
+    if _is_table_block(text):
+        pieces = _split_table_with_header(text)
+        logger.info(
+            "表格块（%d 字符）→ 带表头拆分为 %d 块，每块 ≤ %d 字符",
+            len(text), len(pieces), CHUNK_MAX,
+        )
+        return pieces
+
     sentences = re.split(r"(?<=[。！？\n])", text)
     blocks: list[str] = []
     buf = ""

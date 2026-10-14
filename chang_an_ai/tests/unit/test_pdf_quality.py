@@ -284,7 +284,7 @@ class TestRemediateChunk:
             issues=["列数轻微不一致"],
             suggestion="llm_fix",
         )
-        with patch("app.services.pdf_quality._get_fix_client") as mock_client_func:
+        with patch("app.services.quality.remediator._get_fix_client") as mock_client_func:
             mock_client = MagicMock()
             mock_choice = MagicMock()
             mock_choice.message.content = "大雁塔门票价格为40元。"
@@ -304,7 +304,7 @@ class TestRemediateChunk:
             overall_score=0.6,
             suggestion="llm_fix",
         )
-        with patch("app.services.pdf_quality._get_fix_client") as mock_client_func:
+        with patch("app.services.quality.remediator._get_fix_client") as mock_client_func:
             mock_client = MagicMock()
             mock_client.chat.completions.create.side_effect = RuntimeError("超时")
             mock_client_func.return_value = mock_client
@@ -372,7 +372,7 @@ class TestBackwardCompat:
 
 class TestLlmFixChunk:
     def test_successful_fix(self):
-        with patch("app.services.pdf_quality._get_fix_client") as mock_client_func:
+        with patch("app.services.quality.remediator._get_fix_client") as mock_client_func:
             mock_client = MagicMock()
             mock_choice = MagicMock()
             mock_choice.message.content = "清洗后的文本"
@@ -384,7 +384,7 @@ class TestLlmFixChunk:
             assert result == "清洗后的文本"
 
     def test_empty_response_fallback(self):
-        with patch("app.services.pdf_quality._get_fix_client") as mock_client_func:
+        with patch("app.services.quality.remediator._get_fix_client") as mock_client_func:
             mock_client = MagicMock()
             mock_choice = MagicMock()
             mock_choice.message.content = ""
@@ -396,7 +396,7 @@ class TestLlmFixChunk:
             assert result == "原始文本"
 
     def test_exception_fallback(self):
-        with patch("app.services.pdf_quality._get_fix_client") as mock_client_func:
+        with patch("app.services.quality.remediator._get_fix_client") as mock_client_func:
             mock_client = MagicMock()
             mock_client.chat.completions.create.side_effect = ConnectionError("网络不可达")
             mock_client_func.return_value = mock_client
