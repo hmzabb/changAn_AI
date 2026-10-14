@@ -18,7 +18,7 @@
 </p>
 
 > **💡 项目说明**：本项目为个人学习项目，用于技术探索和实习面试准备，**尚未部署至生产环境**。<br>
-> ✅ 已完成：简化版关键词路由（<1ms延迟）、LLM领域守卫、RAG多格式语料（37篇.md/.pdf/.docx）、并行Agent（6工具+缓存）、PDF质量管线（三段式评估修复）、RAGAS跨家族评测、全面测试覆盖（70+用例）、路由监控系统<br>
+> ✅ 已完成：简化版关键词路由（<1ms延迟）、LLM领域守卫、RAG多格式语料（37篇.md/.pdf/.docx）、并行Agent（6工具+缓存）、统一质量保障（多格式评估修复，格式零侵入）、RAGAS跨家族评测、全面测试覆盖（70+用例）、路由监控系统<br>
 > ⏳ 待完成：云服务器部署、完整压测验证、线上A/B测试
 
 ---
@@ -60,9 +60,9 @@
   → httpx调用Java服务 → 工具结果聚合 → DeepSeek决策 → 最终回答
 ```
 
-**③ PDF 质量管线**（三段式）：
+**③ 统一质量保障**（格式无关，三段式）：
 ```
-上传PDF → pdfplumber解析 → 质量评估(置信度)
+上传文档(.md/.pdf/.docx) → 格式Reader解析 → 统一质量门(文本健康度+表格完整性)
   ├── 高置信(>0.8) → 直接入库 → Milvus索引
   ├── 中置信(0.5-0.8) → LLM修复 → 重新评估 → 入库
   └── 低置信(<0.5) → 人工审核队列 → 专家确认后入库
@@ -112,9 +112,9 @@ docker-compose -f docker-compose.monitoring.yml up -d  # Prometheus :9090 + Graf
 **核心设计原则**：
 - **关注点分离**：Nginx 前缀分流，Java 管业务 / Python 管 AI，职责清晰
 - **防御性设计**：LLM 领域守卫前置拦截非西安文旅查询，节省 3 次 API 调用（embedding+rerank+LLM）
-- **质量闭环**：PDF 三段式管线（评估→修复→审核）+ RAGAS 跨家族自动评分
+- **质量闭环**：统一质量门（多格式 → 评估 → 修复/审核）+ RAGAS 跨家族自动评分
 - **性能优先**：关键词路由 <1ms + Agent 并行提速 40-65% + 工具调用结果缓存
-- **优雅降级**：守卫分类失败 → 放行（不阻塞）；Milvus Loading 卡死 → 超时 5s 跳过；PDF 解析异常 → 记日志继续
+- **优雅降级**：守卫分类失败 → 放行（不阻塞）；Milvus Loading 卡死 → 超时 5s 跳过；文档解析异常 → 记日志继续
 
 </details>
 
@@ -142,9 +142,9 @@ docker-compose -f docker-compose.monitoring.yml up -d  # Prometheus :9090 + Graf
 | 并行工具节点 | `app/agent/parallel_tools.py` | asyncio.gather 并行执行，提速 40-65% |
 | Agent 工具缓存 | `app/agent/cache.py` | LRU 缓存工具调用结果，减少重复 API 请求 |
 | RAG 管线 | `app/services/rag_service.py` | 领域守卫→Embedding→Milvus→Rerank→LLM流式 |
-| PDF 质量管线 | `app/services/pdf_quality.py` | 三段式评估：检测→置信度→降级修复 |
+| 统一质量保障 | `app/services/quality/` | 多格式质量门：检测→置信度→降级修复/审核（子包：assessor/scoring/remediator） |
 | 多格式语料入库 | `app/services/ingest_service.py` | .md/.pdf/.docx 统一解析、分块、质量门 |
-| 纯文本分块器 | `app/services/chunking.py` | chunk_plain_text 按段落切分（PDF/Word 专用）|
+| 文本分块器 | `app/services/chunking.py` | 段落切分 + 表格检测(`_is_table_block`) + 带表头智能拆分 |
 | 旅游知识库 | `app/data/corpus/*.{md,pdf,docx}` | 37篇西安文旅文档（景点/美食/攻略）|
 | RAG 检索评估 | `scripts/eval_retrieval_full.py` | Hit+MRR+Precision/Recall，分层指标(Layer1-4) |
 | RAGAS 评测 | `scripts/eval_ragas.py` | Faithfulness/Relevance/Precision/Recall，Qwen 跨家族评分 |
@@ -173,7 +173,7 @@ chang_an_travel/
 │   │   │   ├── rag_service.py    #    🔍 RAG 管线（领域守卫→检索→生成）
 │   │   │   ├── ingest_service.py #    📥 多格式语料入库（.md/.pdf/.docx）
 │   │   │   ├── chunking.py       #    ✂️ 分块器（Markdown标题/纯文本段落）
-│   │   │   ├── pdf_quality.py    #    📊 PDF 质量管线（三段式评估修复）
+│   │   │   ├── quality/          #    📊 统一质量保障子包（assessor/scoring/remediator等）
 │   │   │   ├── embedding.py      #    🔤 Embedding 服务（超时30s）
 │   │   │   ├── reranker.py       #    📈 重排序（bge-reranker MMR 去重）
 │   │   │   ├── query_rewrite.py  #    🔄 多轮指代消解
