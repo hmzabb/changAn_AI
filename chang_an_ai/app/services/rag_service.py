@@ -122,10 +122,15 @@ def answer(query: str, history: list[dict]):
     yield ("status", "正在生成回答…")
     messages = [
         {"role": "system", "content": RAG_SYSTEM},
+    ]
+    # 把近3轮对话历史带进prompt，LLM可借此推断指代对象（兜底：指代消解漏判时不至于答错实体）
+    if history:
+        messages.extend(history[-6:])
+    messages.append(
         {"role": "user", "content": RAG_USER_TEMPLATE.format(
             context=_build_context(valid_hits), question=query
         )},
-    ]
+    )
     for piece in chat_stream(messages):
         yield ("delta", piece)
     yield ("done", None)
