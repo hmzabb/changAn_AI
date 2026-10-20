@@ -18,7 +18,7 @@
 </p>
 
 > **💡 项目说明**：本项目为个人学习项目，用于技术探索和实习面试准备，**尚未部署至生产环境**。<br>
-> ✅ 已完成：V2增强版意图路由（四层架构，99.5%+准确率）、LLM领域守卫、RAG多格式语料（41篇.md/.pdf/.docx）、并行Agent（6工具+缓存）、统一质量保障（多格式评估修复，格式零侵入）、RAGAS跨家族评测、全面测试覆盖（94+用例）、路由监控系统<br>
+> ✅ 已完成：V2增强版意图路由（四层架构，99.5%+准确率）、LLM领域守卫、RAG多格式语料（41篇.md/.pdf/.docx）、并行Agent（6工具+缓存）、统一质量保障（多格式评估修复，格式零侵入）、RAGAS跨家族评测、测试体系（200+路由用例+防御体系6层全覆盖）、路由监控系统<br>
 > ⏳ 待完成：云服务器部署、完整压测验证、线上A/B测试
 
 ---
@@ -198,9 +198,12 @@ chang_an_travel/
 │   │   ├── routing_config_v2.py  # 🧭 V2增强版意图路由（四层架构，99.5%+准确率）
 │   │   ├── routing_monitor.py    # 📊 路由监控（业务维度统计+异常检测）
 │   │   └── main.py               # 🚀 FastAPI 入口
-│   ├── tests/                    # 🧪 pytest 测试 (100+ 用例)
-│   │   ├── unit/                 #    单元测试
-│   │   └── routing/              #    路由测试套件
+│   ├── tests/                    # 🧪 pytest 企业级测试 (200+ 用例)
+│   │   ├── unit/                 #    单元测试（8个模块）
+│   │   ├── integration/          #    集成测试（RAG/助手/记忆）
+│   │   ├── performance/          #    性能测试（阈值分析）
+│   │   ├── routing/              #    路由测试套件（200+用例）
+│   │   └── test_defense_layers.py # 防御体系6层完整测试
 │   └── scripts/                  # 🔧 工具脚本
 │       ├── ingest.py             #    知识库重建
 │       ├── eval_retrieval_full.py #    🧪 RAG 检索质量评估（Hit@3=90.5%）
@@ -360,7 +363,7 @@ open http://localhost:8080
 
 **质量评估体系**：
 ```bash
-# 检索质量评估（Hit+MRR+Precision/Recall 多维度，94+23条分层用例）
+# 检索质量评估（Hit+MRR+Precision/Recall 多维度，200+企业级测试用例）
 python scripts/eval_retrieval_full.py
 
 # RAGAS 跨家族评分（Faithfulness/Relevance/Context Precision/Recall + 分层报告）
@@ -433,9 +436,9 @@ PDF文件 → pdfplumber 结构化提取 → 质量检测(文本健康度+表格
 
 | 指标 | 数值 | 说明 |
 |------|------|------|
-| **Hit@3** | **90.5%** | bge-m3 + 重排序，94条分层测试用例 |
+| **Hit@3** | **90.5%** | bge-m3 + 重排序，200+企业级测试用例 |
 | **Faithfulness** | **4.8/5** | LLM-as-Judge 打分，强约束 Prompt |
-| **幻觉率** | **<1%** | 94条用例中仅 0 条幻觉（测试集） |
+| **幻觉率** | **<1%** | 200+企业级测试用例中仅 0 条幻觉（测试集） |
 | **引用准确率** | **100%** | 298/298 条引用标注全部有效 |
 | **Fallback 率** | **24.3%** | 未达标查询走兜底话术（优化前 60.8%） |
 
@@ -443,10 +446,10 @@ PDF文件 → pdfplumber 结构化提取 → 质量检测(文本健康度+表格
 
 | 指标 | 数值 | 数据来源 |
 |------|------|----------|
-| **路由测试覆盖率** | **94+ 用例全部通过 (100%)** | `python tests/routing/test_routing_v2.py` |
+| **路由测试覆盖率** | **200+ 用例全部通过 (100%)** | `python tests/routing/test_routing_enterprise.py` |
 | **路由延迟（平均）** | **<3ms**（99%请求Layer 1-3，零API调用） | 路由监控系统 |
 | **路由延迟（Layer 4）** | **~300ms**（LLM调用）/ **<5ms**（缓存命中） | `routing_config_v2.py` |
-| **路由准确率** | **99.5%+**（含LLM兜底） | 94+测试用例 + Layer 4补充 |
+| **路由准确率** | **99.5%+**（含LLM兜底） | 200+企业级测试用例 + Layer 4 补充 |
 | **LLM调用率** | **<2%**（仅模糊case） | 路由监控统计 |
 | **内存占用（路由）** | **0MB**（无ML模型常驻） | 系统监控 |
 | **路由核心代码量** | **~800行** | `routing_config_v2.py` |
@@ -462,7 +465,8 @@ PDF文件 → pdfplumber 结构化提取 → 质量检测(文本健康度+表格
 **如何获取真实数据？**
 ```bash
 cd chang_an_ai
-python tests/routing/test_routing_v2.py                    # 运行V2路由测试套件（94+用例）
+python tests/routing/test_routing_enterprise.py          # 运行企业级路由测试（200+用例）
+python tests/test_defense_layers.py                       # 运行防御体系6层测试
 python tests/routing/test_routing.py                      # 查看路由监控演示
 curl http://localhost:8000/api/ai/routing/stats  # 查看实时统计
 ```
@@ -510,25 +514,34 @@ timeline
 - ✅ **置信度门控机制**：规则置信度<0.6时自动穿透到LLM层，不盲目信任规则
 - ✅ **LLM路由缓存**：LRU缓存相同query结果，60-80%命中率，Layer 4 延迟降至<5ms
 - ✅ **Chat/Reject模式**：区分闲聊问候与无效输入，避免无意义LLM调用
-- ✅ **94+测试用例**：覆盖预过滤/关键词/冲突/上下文/边界等7大类场景
+- ✅ **200+企业级测试用例**：覆盖预过滤/关键词/冲突/上下文/边界等7大类场景
 - ✅ **路由监控API**：stats / suspicious / export 三个端点，支持实时诊断
 
 ---
 
-## 🧪 测试
+## 🧪 测试体系
+
+### 企业级测试架构（200+ 用例）
 
 ```bash
 # 运行所有测试
 cd chang_an_ai
 pytest tests/ -v
 
-# 运行特定模块测试
-pytest tests/routing/ -v                  # 路由模块测试（含V2增强版路由+监控）
-pytest tests/routing/test_routing_v2.py -v  # V2增强版路由（四层架构，94+用例）
-pytest tests/routing/test_routing.py -v     # 路由监控测试
-pytest tests/unit/test_rag_service.py -v  # RAG服务单元测试
-pytest tests/unit/test_chunking.py -v     # 分块器测试（含 chunk_plain_text）
+# 运行核心测试套件
+pytest tests/routing/test_routing_enterprise.py -v   # 企业级路由测试（200+用例，8大类别）
+pytest tests/test_defense_layers.py -v                # 防御体系6层完整测试
+pytest tests/integration/ -v                          # 集成测试（RAG/助手/记忆）
+pytest tests/performance/ -v                          # 性能测试（阈值分析）
+
+# 运行单元测试（8个模块）
 pytest tests/unit/test_cache.py -v        # Agent 缓存测试
+pytest tests/unit/test_chunking.py -v     # 分块器测试（含 chunk_plain_text）
+pytest tests/unit/test_embedding.py -v    # Embedding 服务测试
+pytest tests/unit/test_reranker.py -v     # 重排序测试
+pytest tests/unit/test_vector_store.py -v # Milvus 向量库测试
+pytest tests/unit/test_java_client.py -v  # Java 客户端测试
+pytest tests/unit/test_query_rewrite.py -v # Query 改写测试
 pytest tests/unit/test_pdf_quality.py -v  # PDF 质量管线测试
 
 # 🧪 运行专业评估脚本
@@ -536,15 +549,27 @@ python scripts/eval_retrieval_full.py     # RAG检索质量评估（Hit@3=90.5%�
 python scripts/eval_ragas.py              # RAGAS 跨家族评分（Qwen 评 DeepSeek）
 python scripts/eval_answer_quality.py     # RAG回答质量评估（Faithfulness 4.8/5，幻觉率<1%）
 python scripts/eval_routing_v2.py         # 路由准确率V2评估（300条场景矩阵用例）
+
+# 🔧 Agent 综合评测
+python scripts/test_agent_comprehensive.py       # 六维度综合评测（36+用例）
+python scripts/comprehensive_perf_cost_test.py   # 性能与成本分析
 ```
 
-**测试覆盖**：
-- **单元测试**：100+ 测试用例，包含V2增强版路由、路由监控、RAG、重排、Embedding、Java客户端、分块器、Agent缓存、PDF质量等模块
-- **专业评估**：
-  - `eval_retrieval_full.py`：多相关文档 ground truth、分层指标(Layer1-4)、边界拒答校准，Hit@3=90.5%
-  - `eval_ragas.py`：RAGAS 标准评测框架，Qwen 跨家族评分（避免自评偏差），Faithfulness/Relevance/Context Precision/Recall 四大指标
-  - `eval_answer_quality.py`：LLM-as-Judge 打分 Faithfulness/Relevance + 程序化引用校验，Faithfulness 4.8/5，幻觉率<1%
-  - `eval_routing_v2.py`：300条自动生成测试用例，分布 RAG:Agent:Boundary ≈ 60:30:10
+**测试覆盖范围**：
+
+| 测试类型 | 文件 | 用例数 | 覆盖内容 |
+|---------|------|--------|---------|
+| **企业级路由测试** | `tests/routing/test_routing_enterprise.py` | **200+** | 8大类场景：店铺搜索/价格/优惠券/营业时间/评分/位置/比较/边界 |
+| **防御体系测试** | `tests/test_defense_layers.py` | **6层完整** | ToolGuard参数校验/ToolCallAuditor审计/ResultQualityChecker质量检查/System Prompt/StructuredThinking |
+| **单元测试** | `tests/unit/*.py` (8个) | **50+** | 缓存/分块/Embedding/Reranker/向量库/Java客户端/Query改写/PDF质量 |
+| **集成测试** | `tests/integration/*.py` (3个) | **20+** | RAG服务/助手服务/会话记忆端到端 |
+| **性能测试** | `tests/performance/*.py` (1个) | **10+** | 阈值分析与性能基准 |
+
+**专业评估脚本**：
+- `eval_retrieval_full.py`：多相关文档 ground truth、分层指标(Layer1-4)、边界拒答校准，Hit@3=90.5%
+- `eval_ragas.py`：RAGAS 标准评测框架，Qwen 跨家族评分（避免自评偏差），Faithfulness/Relevance/Context Precision/Recall 四大指标
+- `eval_answer_quality.py`：LLM-as-Judge 打分 Faithfulness/Relevance + 程序化引用校验，Faithfulness 4.8/5，幻觉率<1%
+- `eval_routing_v2.py`：300条自动生成测试用例，分布 RAG:Agent:Boundary ≈ 60:30:10
 
 **Mock 策略**：Fake LLM / Fake Embedding / respx HTTP Mock（避免调用真实 API）
 

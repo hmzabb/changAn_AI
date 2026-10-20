@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 
 from app.prompts.rewrite import DETECT_SYSTEM, REWRITE_SYSTEM, REWRITE_USER_TEMPLATE
-from app.services.llm import chat_sync
+from app.services.llm import chat_local_sync
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ def _llm_classify(question: str) -> bool:
     延迟 ~50-100ms。失败时返回 False（宁可漏判也不错判），不阻塞主流程。
     """
     try:
-        result = chat_sync(
+        result = chat_local_sync(
             [
                 {"role": "system", "content": DETECT_SYSTEM},
                 {"role": "user", "content": f"问题：{question}"},
@@ -129,7 +129,7 @@ def rewrite(question: str, history: list[dict]) -> str:
         )},
     ]
     try:
-        rewritten = chat_sync(messages, temperature=0.1, max_tokens=100).strip()
+        rewritten = chat_local_sync(messages, temperature=0.1, max_tokens=100).strip()
         if not _validate_rewrite(question, rewritten):
             logger.warning(
                 "[指代消解] 改写结果校验不通过，回退原句 | 原文='%s' | 改写='%s'",

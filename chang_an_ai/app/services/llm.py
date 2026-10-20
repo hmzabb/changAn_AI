@@ -1,10 +1,15 @@
-"""DeepSeek 大模型封装（openai SDK，OpenAI 兼容协议）。
+"""大模型封装（openai SDK，OpenAI 兼容协议）。
+
+支持双模型架構：
+- DeepSeek（雲端）：複雜推理、長文本生成、Agent 工具調用
+- Ollama 本地模型（Qwen2.5-1.5B）：路由判斷、指代檢測、短分類等輕量任務
 
 项目里所有 LLM 调用都经过这里：将来加重试/限流/切换模型只改一处。
 流式与非流式分开两个函数——短任务（query 改写）用 sync，聊天用 stream。
 """
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterator
 
 from openai import OpenAI
@@ -13,6 +18,39 @@ from app.config import settings
 
 _client: OpenAI | None = None
 
+
+# -- local model (Ollama) --
+_LOCAL_AVAILABLE = None
+_local_client = None
+_LOCAL_MODEL = "qwen2.5:1.5b"
+_LOCAL_BASE_URL = "http://localhost:11434/v1"
+
+def is_local_available():
+    global _LOCAL_AVAILABLE
+    if _LOCAL_AVAILABLE is not None:
+        return _LOCAL_AVAILABLE
+    try:
+        import urllib.request
+        urllib.request.urlopen(urllib.request.Request("http://localhost:11434/api/tags", method="GET"), timeout=2.0)
+        _LOCAL_AVAILABLE = True
+    except Exception:
+        _LOCAL_AVAILABLE = False
+    return _LOCAL_AVAILABLE
+
+def get_local_client():
+    global _local_client
+    if _local_client is None:
+        _local_client = OpenAI(base_url=_LOCAL_BASE_URL, api_key="ollama")
+    return _local_client
+
+def chat_local_sync(messages, model=_LOCAL_MODEL, temperature=0, max_tokens=5, timeout=3.0):
+    if not is_local_available():
+        return chat_sync(messages, temperature=temperature, max_tokens=max_tokens, timeout=timeout)
+    try:
+        resp = get_local_client().chat.completions.create(model=model, messages=messages, temperature=temperature, max_tokens=max_tokens, timeout=timeout)
+        return resp.choices[0].message.content or ""
+    except Exception:
+        return chat_sync(messages, temperature=temperature, max_tokens=max_tokens, timeout=timeout)
 
 def get_client() -> OpenAI:
     """全局单例：SDK 内部自带 httpx 连接池，进程内复用一个客户端。"""

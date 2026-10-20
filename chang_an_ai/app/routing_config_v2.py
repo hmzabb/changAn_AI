@@ -46,9 +46,10 @@ import json
 import logging
 import time
 import hashlib
-from typing import Optional, Tuple, List, Dict
+from typing import Optional, Tuple, List, Dict, Literal
 from dataclasses import dataclass, field
 from enum import Enum
+from pydantic import BaseModel, Field, field_validator
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +192,54 @@ class RouteResult:
     reason: str
 
 
+class RoutingDecision(BaseModel):
+    """LLM路由决策的Pydantic模型（结构化输出）
+
+    使用Pydantic进行强类型约束和自动验证，替代手动JSON解析。
+    提供更好的类型安全性和错误处理能力。
+    """
+    route: Literal["agent", "rag", "chat", "reject"] = Field(
+        ...,
+        description="路由类型：agent(商家查询), rag(知识问答), chat(闲聊), reject(拒绝)"
+    )
+    confidence: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="决策置信度（0.0-1.0）"
+    )
+    reason: Optional[str] = Field(
+        default=None,
+        description="决策理由（可选）"
+    )
+
+    @field_validator('route')
+    @classmethod
+    def validate_route(cls, v: str) -> str:
+        valid_routes = {"agent", "rag", "chat", "reject"}
+        if v not in valid_routes:
+            raise ValueError(f"无效的路由类型: {v}，必须是 {valid_routes} 之一")
+        return v
+
+    def to_route_result(self, layer_used: int = 4) -> RouteResult:
+        """转换为RouteResult对象
+
+        Args:
+            layer_used: 使用的层级（默认4表示LLM判断）
+
+        Returns:
+            RouteResult: 标准化的路由结果对象
+        """
+        route_type = RouteType(self.route)
+        return RouteResult(
+            route=route_type,
+            confidence=self.confidence,
+            matched_keywords=["llm:classified"],
+            layer_used=layer_used,
+            reason=f"LLM判断({self.reason or '无理由'})"
+        )
+
+
 # =============================================================================
 # Layer 1: 预过滤层（无意义输入/闲聊）
 # =============================================================================
@@ -200,6 +249,13 @@ CHAT_KEYWORDS = frozenset({
     "再见", "拜拜", "bye",
     "哈哈", "呵呵", "嘻嘻",
     "嗯", "哦", "啊", "是吗", "真的吗",
+    "早上好", "晚上好", "中午好",
+    "晚安", "午安",
+    "有意思", "有趣",
+    "好的", "好吧", "行", "成", "中",
+    "嗯嗯", "哦哦", "对对",
+    "没错", "是的", "对",
+    "没事", "没啥", "不用谢", "不客气",
 })
 
 REJECT_PATTERN = re.compile(r'^[\s\W]+$')  # 纯空白/符号/表情
@@ -283,6 +339,7 @@ AGENT_KEYWORDS = (
     
     # ---- 新增：西安方言特色 ----
     "咥", "嫽", "嘹咋咧",
+    "免费停车", "休息", "帮我搜", "搜搜", "那就去",
 )
 
 # Agent强关键词（高权重）
@@ -324,7 +381,9 @@ RAG_KEYWORDS = (
     
     # ---- 文化知识（新增）----
     "由来", "故事", "传说", "建筑", "特色",
+    "深度游", "性价比", "百年老店", "学生证", "骑行",
     "为什么", "什么是", "介绍",
+    "表演", "演出", "节目", "剧场",
 )
 
 # RAG正则模式（支持模糊匹配）
@@ -368,7 +427,7 @@ def _match_rag_keywords(msg: str) -> Tuple[bool, List[str]]:
 RAG_FORCE_COMBINATIONS = {
     # 原有规则（调整：价格查询如果包含"多少钱"则不强制RAG）
     "价格": ["开放时间", "学生票", "老人票"],  # 移除"门票"（门票多少钱→Agent）
-    "推荐": ["景点", "路线", "美食", "小吃", "博物馆", "文化", "住宿", "酒店", "住"],
+    "推荐": ["景点", "路线", "美食", "小吃", "博物馆", "文化", "住宿", "酒店", "住", "性价比", "深度游", "民宿", "门票", "比赛", "体育"],
     "地址": ["博物馆", "景区", "景点"],
     "附近": ["景点", "景区", "博物馆", "酒店", "住宿"],
     "优惠": ["学生票", "老人票"],  # 移除"门票"和"免费"（免费优惠券→Agent）
@@ -381,7 +440,7 @@ RAG_FORCE_COMBINATIONS = {
 
 # Agent优先的例外情况（即使命中RAG强制规则也走Agent）
 AGENT_OVERRIDE_COMBINATIONS = {
-    "多少钱": ["门票", "价格", "票价"],  # "门票多少钱"→Agent（查价格）
+    "多少钱": ["价格", "票价"],  # P0: 移除门票（门票价格→RAG文化查询）  # "门票多少钱"→Agent（查价格）
     "在哪儿": ["钟楼", "大雁塔", "城墙"],  # "钟楼在哪儿"→Agent（查位置）
     "优惠券": ["免费", "折扣", "特价"],  # "免费优惠券"→Agent（查优惠）
 }
@@ -694,54 +753,168 @@ def route_v2(
 
 
 # =============================================================================
-# Layer 4: 小模型智能判断层（处理模糊case）
+# Layer 4: 小模型智能判断层（Function Calling + 重试 + 清洗验证）
 # =============================================================================
-ROUTING_LLM_SYSTEM_PROMPT = """你是一个专业的意图路由分类器。你的任务是根据用户输入判断应该使用哪种处理方式。
 
-## 路由类型说明
+# ---------------------------------------------------------------------------
+# 重试配置
+# ---------------------------------------------------------------------------
+@dataclass
+class RetryConfig:
+    """LLM 调用重试配置（指数退避）"""
+    max_retries: int = 3             # 最大重试次数
+    base_delay: float = 0.5          # 基础延迟（秒）
+    max_delay: float = 4.0           # 最大延迟（秒）
+    backoff_multiplier: float = 2.0  # 退避乘数
 
-1. **agent** - 业务查询类
-   - 查询店铺、餐厅、酒店等具体商家信息
-   - 询问价格、优惠、营业时间、评分等
-   - 需要推荐、比较、挑选商家
-   - 示例："哪家店好吃？"、"门票多少钱"、"有优惠券吗？"
 
-2. **rag** - 知识问答类
-   - 查询景点、历史文化、旅游攻略
-   - 询问交通路线、美食文化、城市信息
-   - 需要知识性解释和介绍
-   - 示例："大雁塔历史"、"西安有什么特色？"、"怎么去兵马俑？"
+# 默认重试配置
+_DEFAULT_RETRY_CONFIG = RetryConfig()
 
-3. **chat** - 闲聊对话类
-   - 问候、致谢、告别等社交用语
-   - 天气、心情等日常闲聊
-   - 示例："你好"、"谢谢"、"今天天气怎么样？"
 
-4. **reject** - 无效输入类
-   - 空消息、纯符号、纯表情
-   - 无法理解的乱码或无意义内容
-   - 示例："@#$%"、"。。。"
-
-## 输出格式要求
-
-请严格返回JSON格式（不要包含其他文字）：
-```json
-{
-  "route": "agent|rag|chat|reject",
-  "confidence": 0.0-1.0,
-  "reason": "简短判断理由（10字以内）"
+# ---------------------------------------------------------------------------
+# Function Calling - OpenAI Tool Schema
+# ---------------------------------------------------------------------------
+ROUTING_TOOL_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "classify_intent",
+        "description": "对用户的输入进行分类，判断应该路由到哪个处理模块。"
+                       "agent=商家/服务查询, rag=知识问答, chat=闲聊, reject=无效输入",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "route": {
+                    "type": "string",
+                    "enum": ["agent", "rag", "chat", "reject"],
+                    "description": "路由类型"
+                },
+                "confidence": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 1.0,
+                    "description": "置信度：0.9+明确, 0.7-0.9较确定, 0.6-0.7模糊, <0.6不确定"
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "分类的简要理由"
+                }
+            },
+            "required": ["route", "confidence"]
+        }
+    }
 }
-```
 
-## 判断原则
+# Function Calling 的系统提示词（比纯文本更简洁，让 Tool 定义承担结构化职责）
+ROUTING_FC_SYSTEM_PROMPT = """你是西安旅游助手的意图路由分类器。请调用 classify_intent 函数对用户输入进行分类。
 
-- 优先匹配明确的关键词意图
-- 如果同时涉及商家和景点，优先判断用户主要关注点
-- 对于模糊输入，选择最可能的类型并给出较低置信度（0.6-0.7）
-- 完全无法判断时，默认返回rag（knowledge）并给出低置信度（0.5）
-"""
+路由规则参考：
+- agent: 商家/服务查询（找店、订票、优惠券、人均消费等）
+- rag: 知识问答（景点介绍、攻略、价格查询、交通方式等）
+- chat: 闲聊对话（打招呼、感谢、告别等社交用语）
+- reject: 无效输入（乱码、无意义字符、纯标点等）
+
+边界判断示例：
+大雁塔门票 -> rag | 这家店人均 -> agent | 钟楼附近住 -> rag
+钟楼汉庭 -> agent | 百年老店 -> rag | 帮我找百年老店 -> agent
+用学生证能打折 -> rag | 学生优惠券 -> agent | 怎么去 -> rag
+推荐一家 -> agent | 推荐景点 -> rag | 值得去吗 -> agent
+今天休息吗 -> agent | 火车站附近酒店 -> rag | 帮我搜搜 -> agent"""
+
+# 旧版 System Prompt 保留用于纯文本兜底
+ROUTING_PLAINTEXT_SYSTEM_PROMPT = """你是一个专业的意图路由分类器，服务于西安旅游助手系统。
+
+## 路由类型定义
+1. **agent** - 商家/服务查询
+2. **rag** - 知识问答
+3. **chat** - 闲聊对话
+4. **reject** - 无效输入
+
+## 模糊边界判断指南
+大雁塔门票多少钱 -> rag
+这家店人均多少 -> agent
+钟楼附近住哪里 -> rag
+钟楼汉庭多少钱 -> agent
+西安有哪些百年老店 -> rag
+帮我找百年老店 -> agent
+用学生证能打折吗 -> rag
+有没有学生优惠券 -> agent
+回民街怎么去 -> rag
+这家店怎么去 -> agent
+推荐一家好吃的 -> agent
+推荐西安景点 -> rag
+值得去吗 -> agent
+咋吃 -> agent
+有意思 -> chat
+今天休息吗 -> agent
+火车站附近酒店 -> rag
+帮我搜搜 -> agent
+
+## 输出格式
+严格JSON：route=agent/rag/chat/reject, confidence=0.0-1.0
+
+## 置信度
+0.9-1.0: 明确命中
+0.7-0.9: 较确定
+0.6-0.7: 模糊
+0.5-0.6: 不确定"""
 
 
+# ---------------------------------------------------------------------------
+# 响应清洗
+# ---------------------------------------------------------------------------
+def _clean_llm_tool_arguments(raw_args: str) -> str:
+    """清洗 LLM Function Calling 返回的 arguments JSON 字符串
+
+    处理常见问题：
+    - 首尾空白/换行
+    - Markdown 代码块包裹
+    - 多余的转义字符
+    - 尾部多余逗号
+    """
+    cleaned = raw_args.strip()
+
+    # 移除 Markdown 代码块包裹
+    if cleaned.startswith("```"):
+        json_match = re.search(r'\{[\s\S]*\}', cleaned)
+        if json_match:
+            cleaned = json_match.group()
+
+    # 修复尾部多余逗号（常见 LLM 输出问题）
+    cleaned = re.sub(r',\s*}', '}', cleaned)
+    cleaned = re.sub(r',\s*]', ']', cleaned)
+
+    return cleaned
+
+
+def _validate_and_convert_tool_result(tool_args: dict, attempt: int = 0) -> Optional[RouteResult]:
+    """验证 Function Calling 返回的参数并转换为 RouteResult
+
+    Args:
+        tool_args: LLM function call 的 arguments 字典
+        attempt: 当前尝试次数（用于日志）
+
+    Returns:
+        RouteResult: 验证通过的路由结果，失败返回 None
+    """
+    try:
+        decision = RoutingDecision(**tool_args)
+        logger.info(
+            f"✅ Function Calling 验证通过 (attempt={attempt}): "
+            f"route={decision.route}, confidence={decision.confidence:.2f}"
+        )
+        return decision.to_route_result(layer_used=4)
+    except Exception as e:
+        logger.warning(
+            f"⚠️ Function Calling 参数验证失败 (attempt={attempt}): "
+            f"{type(e).__name__}: {e}\n参数: {tool_args}"
+        )
+        return None
+
+
+# ---------------------------------------------------------------------------
+# 对话历史格式化
+# ---------------------------------------------------------------------------
 def _format_history_for_llm(history: Optional[List[dict]]) -> str:
     """将对话历史格式化为LLM可理解的摘要"""
     if not history or len(history) < 2:
@@ -762,130 +935,208 @@ def _format_history_for_llm(history: Optional[List[dict]]) -> str:
     return "\n".join(summary_parts)
 
 
-def _parse_llm_routing_response(llm_output: str) -> Optional[dict]:
-    """解析LLM返回的JSON路由决策"""
+# ---------------------------------------------------------------------------
+# 纯文本 JSON 解析（Function Calling 不可用时的兜底方案）
+# ---------------------------------------------------------------------------
+def _parse_llm_routing_response(llm_output: str) -> Optional[RoutingDecision]:
+    """使用Pydantic模型解析LLM返回的JSON路由决策（纯文本兜底方案）
+
+    仅在 Function Calling 不可用时作为降级策略使用。
+    """
     try:
         cleaned_output = llm_output.strip()
 
         if cleaned_output.startswith("```"):
-            import re
             json_match = re.search(r'\{.*\}', cleaned_output, re.DOTALL)
             if json_match:
                 cleaned_output = json_match.group()
 
-        result = json.loads(cleaned_output)
-
-        required_fields = {"route", "confidence", "reason"}
-        if not required_fields.issubset(result.keys()):
-            logger.warning(f"LLM返回缺少必要字段: {result.keys()}")
-            return None
-
-        if result["route"] not in ["agent", "rag", "chat", "reject"]:
-            logger.warning(f"无效的路由类型: {result['route']}")
-            return None
-
-        confidence = float(result["confidence"])
-        if not (0.0 <= confidence <= 1.0):
-            logger.warning(f"置信度超出范围: {confidence}")
-            confidence = max(0.0, min(1.0, confidence))
-
-        result["confidence"] = confidence
-        return result
+        data = json.loads(cleaned_output)
+        decision = RoutingDecision(**data)
+        logger.info(f"✅ 纯文本解析成功: route={decision.route}, confidence={decision.confidence:.2f}")
+        return decision
 
     except json.JSONDecodeError as e:
-        logger.error(f"LLM返回JSON解析失败: {e}\n原始输出: {llm_output[:200]}")
+        logger.error(f"❌ 纯文本JSON解析失败: {e}\n原始输出: {llm_output[:200]}")
         return None
     except Exception as e:
-        logger.error(f"解析LLM响应时出错: {e}")
+        logger.error(f"❌ 纯文本路由验证失败 [{type(e).__name__}]: {e}\n原始输出: {llm_output[:200]}")
         return None
 
 
+# ---------------------------------------------------------------------------
+# 主调用函数：Function Calling（带重试）+ 纯文本兜底
+# ---------------------------------------------------------------------------
 def _call_llm_for_routing(
     message: str,
     history: Optional[List[dict]] = None,
-    timeout: float = 5.0
+    timeout: float = 5.0,
+    retry_config: Optional[RetryConfig] = None,
 ) -> Optional[RouteResult]:
     """
-    调用小模型进行智能路由判断（Layer 4）- 带缓存
+    Layer 4 路由判断（工业级实现）
 
-    仅在规则引擎置信度不足时触发（<2%的请求会走到这里）
-    P2优化：相同query在TTL内直接返回缓存结果，避免重复LLM调用
+    策略优先级：
+    1. Function Calling（DeepSeek 云端）→ 强制结构化输出，成功率最高
+    2. 本地 Ollama 模型 → 低延迟，适合简单 case
+    3. 纯文本 + JSON 解析 → 最终兜底
+
+    重试机制：
+    - Function Calling 失败 → 最多重试 max_retries 次（指数退避）
+    - 重试耗尽 → 降级到纯文本模式
+    - 纯文本模式失败 → 降级到本地模型 → 返回 None（规则兜底）
 
     Args:
         message: 用户输入消息
-        history: 对话历史（用于上下文理解）
-        timeout: 超时时间（秒），默认5秒
+        history: 对话历史
+        timeout: 单次请求超时（秒）
+        retry_config: 重试配置，None 使用默认值
 
     Returns:
-        RouteResult: LLM的路由决策结果，失败返回None
+        RouteResult: 路由结果，失败返回 None
     """
+    if retry_config is None:
+        retry_config = _DEFAULT_RETRY_CONFIG
 
     # P2: 先查缓存
     cached_result = _routing_llm_cache.get(message)
     if cached_result:
         return cached_result
 
-    # 缓存未命中，调用LLM
+    history_summary = _format_history_for_llm(history)
+    user_content = f"用户输入: {message}\n\n历史对话:\n{history_summary}"
+
+    # =====================================================================
+    # 策略1: Function Calling（云端 DeepSeek，带重试）
+    # =====================================================================
     try:
-        from app.services.llm import chat_sync
+        from app.services.llm import get_client
+        from app.config import settings
 
-        history_summary = _format_history_for_llm(history)
-
-        user_prompt = f"""请判断以下用户输入的路由类型：
-
-## 用户输入
-{message}
-
-## 最近对话历史
-{history_summary}
-
-请返回JSON格式的路由决策。"""
-
-        messages = [
-            {"role": "system", "content": ROUTING_LLM_SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt}
+        client = get_client()
+        fc_messages = [
+            {"role": "system", "content": ROUTING_FC_SYSTEM_PROMPT},
+            {"role": "user", "content": user_content}
         ]
 
-        logger.info(f"🤖 调用LLM进行路由判断 (消息长度: {len(message)})")
+        last_error = None
+        for attempt in range(1, retry_config.max_retries + 1):
+            try:
+                logger.info(
+                    f"🤖 Function Calling 路由判断 (attempt={attempt}/{retry_config.max_retries}, "
+                    f"消息长度={len(message)})"
+                )
 
-        llm_response = chat_sync(
-            messages=messages,
+                resp = client.chat.completions.create(
+                    model=settings.deepseek_model,
+                    messages=fc_messages,
+                    temperature=0.0,                        # 零温度确保确定性
+                    max_tokens=200,
+                    timeout=timeout,
+                    tools=[ROUTING_TOOL_SCHEMA],
+                    tool_choice={                           # 强制调用 classify_intent
+                        "type": "function",
+                        "function": {"name": "classify_intent"}
+                    }
+                )
+
+                # 提取 tool_calls
+                choice = resp.choices[0]
+                if not choice.message.tool_calls:
+                    logger.warning(f"⚠️ Function Calling 未返回 tool_calls (attempt={attempt})")
+                    last_error = "no_tool_calls"
+                    continue
+
+                tool_call = choice.message.tool_calls[0]
+                if tool_call.function.name != "classify_intent":
+                    logger.warning(
+                        f"⚠️ 非预期的 function 名称: {tool_call.function.name} (attempt={attempt})"
+                    )
+                    last_error = f"unexpected_function:{tool_call.function.name}"
+                    continue
+
+                # 清洗 + 解析 arguments
+                raw_args = tool_call.function.arguments
+                cleaned_args = _clean_llm_tool_arguments(raw_args)
+                tool_args = json.loads(cleaned_args)
+
+                # Pydantic 验证 + 转换
+                result = _validate_and_convert_tool_result(tool_args, attempt)
+                if result is not None:
+                    _routing_llm_cache.set(message, result)
+                    return result
+
+                last_error = "validation_failed"
+
+            except json.JSONDecodeError as e:
+                last_error = f"json_decode:{e}"
+                logger.warning(f"⚠️ Function Calling JSON 解析失败 (attempt={attempt}): {e}")
+
+            except Exception as e:
+                error_type = type(e).__name__
+                last_error = f"{error_type}:{e}"
+
+                # 不可重试的错误类型
+                non_retryable = {"AuthenticationError", "PermissionDeniedError", "NotFoundError"}
+                if error_type in non_retryable:
+                    logger.error(f"❌ Function Calling 不可重试错误 [{error_type}]: {e}")
+                    break
+
+                logger.warning(f"⚠️ Function Calling 调用异常 (attempt={attempt}): {e}")
+
+            # 指数退避
+            if attempt < retry_config.max_retries:
+                delay = min(
+                    retry_config.base_delay * (retry_config.backoff_multiplier ** (attempt - 1)),
+                    retry_config.max_delay
+                )
+                logger.info(f"⏳ 等待 {delay:.1f}s 后重试...")
+                time.sleep(delay)
+
+        # 所有重试耗尽
+        logger.warning(f"⚠️ Function Calling 重试耗尽 ({retry_config.max_retries}次), 降级到纯文本模式. last_error={last_error}")
+
+    except ImportError as e:
+        logger.warning(f"⚠️ 云端 LLM 不可用 ({e}), 降级到本地模型")
+    except Exception as e:
+        logger.error(f"❌ Function Calling 初始化失败: {e}", exc_info=True)
+
+    # =====================================================================
+    # 策略2: 降级到本地 Ollama 模型（纯文本 + JSON 解析）
+    # =====================================================================
+    try:
+        from app.services.llm import chat_local_sync
+
+        plaintext_messages = [
+            {"role": "system", "content": ROUTING_PLAINTEXT_SYSTEM_PROMPT},
+            {"role": "user", "content": f"请对以下用户输入进行路由分类，返回JSON：\n\n{user_content}"}
+        ]
+
+        logger.info(f"📝 降级到纯文本路由判断 (消息长度={len(message)})")
+
+        llm_response = chat_local_sync(
+            messages=plaintext_messages,
             temperature=0.1,
             max_tokens=150,
             timeout=timeout
         )
 
-        if not llm_response or not llm_response.strip():
-            logger.warning("LLM返回空响应")
-            return None
+        if llm_response and llm_response.strip():
+            parsed_result = _parse_llm_routing_response(llm_response)
+            if parsed_result:
+                result = parsed_result.to_route_result(layer_used=4)
+                _routing_llm_cache.set(message, result)
+                return result
 
-        parsed_result = _parse_llm_routing_response(llm_response)
-        if not parsed_result:
-            return None
+        logger.warning("⚠️ 纯文本路由解析失败")
 
-        route_type = RouteType(parsed_result["route"])
-        confidence = parsed_result["confidence"]
-        reason = parsed_result.get("reason", "LLM决策")
-
-        result = RouteResult(
-            route=route_type,
-            confidence=confidence,
-            matched_keywords=["llm:classified"],
-            layer_used=4,
-            reason=f"LLM判断({reason})"
-        )
-
-        # P2: 写入缓存
-        _routing_llm_cache.set(message, result)
-
-        return result
-
-    except ImportError as e:
-        logger.error(f"LLM服务导入失败: {e}，请检查app.services.llm模块")
-        return None
+    except ImportError:
+        logger.warning("⚠️ 本地 LLM 模块不可用")
     except Exception as e:
-        logger.error(f"LLM路由调用异常: {e}", exc_info=True)
-        return None
+        logger.error(f"❌ 纯文本路由调用异常: {e}", exc_info=True)
+
+    # 所有策略均失败
+    return None
 
 
 # =============================================================================
